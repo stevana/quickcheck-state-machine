@@ -605,6 +605,21 @@ we can improve it on the issue tracker!
         [testing](https://hypothesis.readthedocs.io/en/latest/stateful.html) (no
         parallel property).
 
+### History and current status
+
+This library was originally developed while I was working at *ATS Advanced
+Telematic Systems GmbH* between 2017 and 2018. In 2018 *HERE Europe B.V*
+acquired *ATS* and took over control over the
+[advancedtelematic](https://github.com/advancedtelematic) GitHub organisation. I
+left *HERE* in 2019 and in 2021 they archived the old
+[`quickcheck-state-machine`](https://github.com/advancedtelematic/quickcheck-state-machine)
+repo making it read-only -- that's when this fork was created.
+
+I no longer use `quickcheck-state-machine` on a daily basis, and have no plans
+for making any major changes. That said, I consider the library fairly feature
+complete and stable and I'm happy to do minor maintenance work. I'm also happy
+to help and mentor anyone willing to take on a more active development role.
+
 ### License
 
 BSD-style (see the file LICENSE).
