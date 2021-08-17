@@ -1,3 +1,9 @@
+#### 0.7.1 (2021-8-17)
+
+  * Update links and references from the old archived repo at the
+    `advancedtelematic` Github organisation to the active fork of the repo at
+    the Github user `stevana`.
+
 #### 0.7.0 (2020-3-17)
 
   * Add Stack resolver lts-15 and drop lts-11;

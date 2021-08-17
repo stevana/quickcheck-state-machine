@@ -1,9 +1,6 @@
 ## quickcheck-state-machine
 
 [![Hackage](https://img.shields.io/hackage/v/quickcheck-state-machine.svg)](https://hackage.haskell.org/package/quickcheck-state-machine)
-[![Stackage Nightly](http://stackage.org/package/quickcheck-state-machine/badge/nightly)](http://stackage.org/nightly/package/quickcheck-state-machine)
-[![Stackage LTS](http://stackage.org/package/quickcheck-state-machine/badge/lts)](http://stackage.org/lts/package/quickcheck-state-machine)
-[![Build Status](https://api.travis-ci.org/advancedtelematic/quickcheck-state-machine.svg?branch=master)](https://travis-ci.org/advancedtelematic/quickcheck-state-machine)
 
 `quickcheck-state-machine` is a Haskell library, based
 on [QuickCheck](https://hackage.haskell.org/package/QuickCheck), for testing
@@ -307,7 +304,7 @@ might end up overwriting the other one -- creating the race condition.
 We shall come back to this example below, but if your are impatient you can
 find the full source
 code
-[here](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/MemoryReference.hs).
+[here](https://github.com/stevana/quickcheck-state-machine/blob/master/test/MemoryReference.hs).
 
 ### How it works
 
@@ -372,7 +369,7 @@ Here are some more examples to get you started:
 
   * The water jug problem from *Die Hard 3* -- this is a
     simple
-    [example](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/DieHard.hs) of
+    [example](https://github.com/stevana/quickcheck-state-machine/blob/master/test/DieHard.hs) of
     a specification where we use the sequential property to find a solution
     (counterexample) to a puzzle from an action movie. Note that this example
     has no meaningful semantics, we merely model-check. It might be helpful to
@@ -384,19 +381,19 @@ Here are some more examples to get you started:
     [solution](https://github.com/tlaplus/Examples/blob/master/specifications/DieHard/DieHard.tla);
 
   * The Tower of Hanoi puzzle -- this
-    [example](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/Hanoi.hs) uses
+    [example](https://github.com/stevana/quickcheck-state-machine/blob/master/test/Hanoi.hs) uses
     property based testing in a very similar manner to the
-    Die Hard [example](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/DieHard.hs)
+    Die Hard [example](https://github.com/stevana/quickcheck-state-machine/blob/master/test/DieHard.hs)
     to find a solution to the classic [Tower of Hanoi puzzle](https://en.wikipedia.org/wiki/Tower_of_Hanoi);
 
   * Mutable
     reference
-    [example](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/MemoryReference.hs) --
+    [example](https://github.com/stevana/quickcheck-state-machine/blob/master/test/MemoryReference.hs) --
     this is a bigger example that shows both how the sequential property can
     find normal bugs, and how the parallel property can find race conditions;
 
   * Circular buffer
-    [example](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/CircularBuffer.hs)
+    [example](https://github.com/stevana/quickcheck-state-machine/blob/master/test/CircularBuffer.hs)
     -- another example that shows how the sequential property can find help find
     different kind of bugs. This example is borrowed from the paper *Testing the
     Hard Stuff and Staying Sane*
@@ -406,7 +403,7 @@ Here are some more examples to get you started:
     [variant](https://github.com/polux/qsm-ffi-demo) which uses the C FFI;
 
   * The union-find
-    [example](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/UnionFind.hs)
+    [example](https://github.com/stevana/quickcheck-state-machine/blob/master/test/UnionFind.hs)
     -- an imperative implementation of the union-find algorithm. It could be
     useful to compare the solution to the one that appears in the paper *Testing
     Monadic Code with QuickCheck*
@@ -416,7 +413,7 @@ Here are some more examples to get you started:
 
   * Ticket
     dispenser
-    [example](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/TicketDispenser.hs) --
+    [example](https://github.com/stevana/quickcheck-state-machine/blob/master/test/TicketDispenser.hs) --
     a simple example where the parallel property is used once again to find a
     race condition. The semantics in this example uses a simple database file
     that needs to be setup and cleaned up. This example also appears in the
@@ -428,7 +425,7 @@ Here are some more examples to get you started:
 
   * CRUD webserver where create returns unique
     ids
-    [example](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/CrudWebserverDb.hs) --
+    [example](https://github.com/stevana/quickcheck-state-machine/blob/master/test/CrudWebserverDb.hs) --
     create, read, update and delete users in a postgres database on a webserver
     using an API written
     using [Servant](https://github.com/haskell-servant/servant). Creating a user
@@ -436,7 +433,7 @@ Here are some more examples to get you started:
     to use. In this example, unlike in the last one, the server is setup and
     torn down once per property rather than generate program;
 
-  * Bookstore [example](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/Bookstore.hs)
+  * Bookstore [example](https://github.com/stevana/quickcheck-state-machine/blob/master/test/Bookstore.hs)
     -- another database application, that uses simple SQL queries to manage a bookstore.
     It is based on a
     [case study](https://propertesting.com/book_case_study_stateful_properties_with_a_bookstore.html)
@@ -444,7 +441,7 @@ Here are some more examples to get you started:
     book;
 
   * Process registry
-    [example](https://github.com/advancedtelematic/quickcheck-state-machine/blob/master/test/ProcessRegistry.hs)
+    [example](https://github.com/stevana/quickcheck-state-machine/blob/master/test/ProcessRegistry.hs)
     -- an example often featured in the Erlang QuickCheck papers. This example
     shows how one can tag the specification with which requirements are covered
     and then generate (minimal) examples of test cases that cover each
@@ -455,11 +452,10 @@ Here are some more examples to get you started:
     [video](https://www.youtube.com/watch?v=w2fin2V83e8)] papers.
 
 All properties from the examples can be found in the
-[`Spec`](https://github.com/advancedtelematic/quickcheck-state-machine/tree/master/test/Spec.hs)
+[`Spec`](https://github.com/stevana/quickcheck-state-machine/tree/master/test/Spec.hs)
 module located in the
-[`test`](https://github.com/advancedtelematic/quickcheck-state-machine/tree/master/test)
-directory. The properties from the examples get tested as part of [Travis
-CI](https://travis-ci.org/advancedtelematic/quickcheck-state-machine).
+[`test`](https://github.com/stevana/quickcheck-state-machine/tree/master/test)
+directory.
 
 To get a better feel for the examples it might be helpful to `git clone` this
 repo, `cd` into it, fire up `stack ghci --test`, load the different examples,
