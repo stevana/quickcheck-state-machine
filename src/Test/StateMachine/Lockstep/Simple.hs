@@ -159,7 +159,6 @@ data Simple t
 
 type instance NAry.MockState   (Simple t) = MockState t
 type instance NAry.RealHandles (Simple t) = '[RealHandle t]
-type instance NAry.RealMonad   (Simple _) = IO
 
 data instance NAry.Cmd (Simple _) _f _hs where
     SimpleCmd :: Cmd t (f h) -> NAry.Cmd (Simple t) f '[h]
@@ -212,7 +211,7 @@ instance ToExpr (MockHandle t)
       => ToExpr (NAry.MockHandle (Simple t) (RealHandle t)) where
   toExpr (SimpleToMock h) = toExpr h
 
-fromSimple :: StateMachineTest t -> NAry.StateMachineTest (Simple t)
+fromSimple :: StateMachineTest t -> NAry.StateMachineTest (Simple t) IO
 fromSimple StateMachineTest{..} = NAry.StateMachineTest {
       runMock    = \cmd st -> first respMockFromSimple (runMock (cmdMockToSimple cmd) st)
     , runReal    = \cmd -> respRealFromSimple <$> (runReal (cmdRealToSimple cmd))
