@@ -53,6 +53,8 @@ type instance MockState (T a) = Map (MockHandle (T a)) a
 instance ToExpr (MockHandle (T a))
 instance ToExpr (RealHandle (T a))
 
+type instance Tag (T _) = TagCmd
+
 {-------------------------------------------------------------------------------
   Interpreters
 -------------------------------------------------------------------------------}
@@ -105,6 +107,23 @@ generator (Model _ hs) = Just $ oneof $ concat [
     genHandle = elements (map fst hs)
 
 {-------------------------------------------------------------------------------
+  Tagging
+
+  We just label with the name of the command, for now.
+-------------------------------------------------------------------------------}
+
+data TagCmd = TagNew | TagRead | TagUpdate
+  deriving stock (Show)
+
+tagCmds :: [Event (T Int) Symbolic] -> [TagCmd]
+tagCmds = map (aux . unAt . cmd)
+  where
+    aux :: Cmd (T Int) h -> TagCmd
+    aux New        = TagNew
+    aux (Read   _) = TagRead
+    aux (Update _) = TagUpdate
+
+{-------------------------------------------------------------------------------
   Wrapping it all up
 
   NOTE: The parallel property will fail (intentional race condition).
@@ -119,6 +138,7 @@ ioRefTest = StateMachineTest {
     , runMock    = IORefs.runMock 0 (+1)
     , runReal    = IORefs.runReal 0 (+1)
     , cleanup    = \_ -> return ()
+    , tag        = tagCmds
     }
 
 prop_IORefs_sequential :: Property

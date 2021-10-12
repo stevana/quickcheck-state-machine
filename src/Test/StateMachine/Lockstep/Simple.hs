@@ -20,8 +20,10 @@ module Test.StateMachine.Lockstep.Simple (
   , RealHandle
   , MockHandle
   , Test
+  , Tag
     -- * Test term-level parameters
   , StateMachineTest(..)
+  , Event(..)
     -- * Handle instantiation
   , At(..)
   , (:@)
@@ -45,7 +47,7 @@ import           Test.QuickCheck
 import           Test.StateMachine
 import           Test.StateMachine.Lockstep.Auxiliary
 import           Test.StateMachine.Lockstep.NAry
-                   (MockState)
+                   (MockState, Tag)
 
 import qualified Test.StateMachine.Lockstep.NAry      as NAry
 
@@ -87,15 +89,33 @@ modelToSimple NAry.Model{modelRefss = NAry.Refss (NAry.Refs rs :* Nil), ..} = Mo
     }
 
 {-------------------------------------------------------------------------------
+  Simplified event
+-------------------------------------------------------------------------------}
+
+data Event t r = Event {
+      before   :: Model t    r
+    , cmd      :: Cmd   t :@ r
+    , after    :: Model t    r
+    , mockResp :: Resp t (MockHandle t)
+    }
+
+eventToSimple :: (Functor (Cmd t), Functor (Resp t))
+              => NAry.Event (Simple t) r -> Event t r
+eventToSimple NAry.Event{..} = Event{
+      before   = modelToSimple before
+    , cmd      = cmdAtToSimple cmd
+    , after    = modelToSimple after
+    , mockResp = respMockToSimple mockResp
+    }
+
+{-------------------------------------------------------------------------------
   Wrap and unwrap
 -------------------------------------------------------------------------------}
 
-cmdAtFromSimple :: Functor (Cmd t)
-                => Cmd t :@ Symbolic -> NAry.Cmd (Simple t) NAry.:@ Symbolic
+cmdAtFromSimple :: Functor (Cmd t) => Cmd t :@ r -> NAry.Cmd (Simple t) NAry.:@ r
 cmdAtFromSimple = NAry.At . SimpleCmd . fmap NAry.FlipRef . unAt
 
-cmdAtToSimple :: Functor (Cmd t)
-              => NAry.Cmd (Simple t) NAry.:@ Symbolic -> Cmd t :@ Symbolic
+cmdAtToSimple :: Functor (Cmd t) => NAry.Cmd (Simple t) NAry.:@ r -> Cmd t :@ r
 cmdAtToSimple = At . fmap (NAry.unFlipRef) . unSimpleCmd . NAry.unAt
 
 cmdMockToSimple :: Functor (Cmd t)
@@ -112,6 +132,11 @@ respMockFromSimple :: Functor (Resp t)
                    => Resp t (MockHandle t)
                    -> NAry.Resp (Simple t) (NAry.MockHandle (Simple t)) '[RealHandle t]
 respMockFromSimple = SimpleResp . fmap SimpleToMock
+
+respMockToSimple :: Functor (Resp t)
+                 => NAry.Resp (Simple t) (NAry.MockHandle (Simple t)) '[RealHandle t]
+                 -> Resp t (MockHandle t)
+respMockToSimple = fmap unSimpleToMock . unSimpleResp
 
 respRealFromSimple :: Functor (Resp t)
                    => Resp t (RealHandle t)
@@ -145,6 +170,8 @@ data StateMachineTest t =
       -- Mock state
     , Show   (MockState t)
     , ToExpr (MockState t)
+      -- Tags
+    , Show (Tag t)
     ) => StateMachineTest {
       runMock    :: Cmd t (MockHandle t) -> MockState t -> (Resp t (MockHandle t), MockState t)
     , runReal    :: Cmd t (RealHandle t) -> IO (Resp t (RealHandle t))
@@ -153,12 +180,14 @@ data StateMachineTest t =
     , generator  :: Model t Symbolic -> Maybe (Gen (Cmd t :@ Symbolic))
     , shrinker   :: Model t Symbolic -> Cmd t :@ Symbolic -> [Cmd t :@ Symbolic]
     , cleanup    :: Model t Concrete -> IO ()
+    , tag        :: [Event t Symbolic] -> [Tag t]
     }
 
 data Simple t
 
 type instance NAry.MockState   (Simple t) = MockState t
 type instance NAry.RealHandles (Simple t) = '[RealHandle t]
+type instance NAry.Tag         (Simple t) = Tag t
 
 data instance NAry.Cmd (Simple _) _f _hs where
     SimpleCmd :: Cmd t (f h) -> NAry.Cmd (Simple t) f '[h]
@@ -220,6 +249,7 @@ fromSimple StateMachineTest{..} = NAry.StateMachineTest {
     , generator  = \m     -> fmap cmdAtFromSimple <$> generator (modelToSimple m)
     , shrinker   = \m cmd ->      cmdAtFromSimple <$> shrinker  (modelToSimple m) (cmdAtToSimple cmd)
     , cleanup    = cleanup   . modelToSimple
+    , tag        = tag . map eventToSimple
     }
 
 {-------------------------------------------------------------------------------
