@@ -24,10 +24,12 @@ module Test.StateMachine.Lockstep.NAry (
   , Resp
   , RealHandles
   , MockHandle
-  , RealMonad
   , Test
+  , Tag
     -- * Test term-level parameters
   , StateMachineTest(..)
+  , Event(..)
+  , hoistStateMachineTest
     -- * Handle instantiation
   , At(..)
   , (:@)
@@ -39,6 +41,9 @@ module Test.StateMachine.Lockstep.NAry (
     -- * Running the tests
   , prop_sequential
   , prop_parallel
+    -- * Examples
+  , showLabelledExamples'
+  , showLabelledExamples
   -- * Translate to state machine model
   , toStateMachine
   ) where
@@ -58,9 +63,12 @@ import           Prelude
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
 import           Test.StateMachine
+                   hiding (showLabelledExamples, showLabelledExamples')
 
 import qualified Data.Monoid                          as M
 import qualified Data.TreeDiff                        as TD
+import qualified Test.StateMachine.Labelling          as Label
+import qualified Test.StateMachine.Sequential         as Seq
 import qualified Test.StateMachine.Types              as QSM
 import qualified Test.StateMachine.Types.Rank2        as Rank2
 
@@ -70,12 +78,49 @@ import           Test.StateMachine.Lockstep.Auxiliary
   Test type-level parameters
 -------------------------------------------------------------------------------}
 
-type family MockState   t   :: Type
-data family Cmd         t   :: (Type -> Type) -> [Type] -> Type
-data family Resp        t   :: (Type -> Type) -> [Type] -> Type
-type family RealHandles t   :: [Type]
-data family MockHandle  t a :: Type
-type family RealMonad   t   :: Type -> Type
+-- | Mock state
+--
+-- The @t@ argument (here and elsewhere) is a type-level tag that combines all
+-- aspects of the test; it does not need any term-level constructors
+--
+-- > data MyTest
+-- > type instance MockState MyTest = ..
+type family MockState t :: Type
+
+-- | Type-level list of the types of the handles in the system under test
+--
+-- NOTE: If your system under test only requires a single real handle, you
+-- might consider using "Test.StateMachine.Lockstep.Simple" instead.
+type family RealHandles t :: [Type]
+
+-- | Mock handles
+--
+-- For each real handle @a@, @MockHandle t a@ is the corresponding mock handle.
+data family MockHandle t a :: Type
+
+-- | Commands
+--
+-- In @Cmd t f hs@, @hs@ is the list of real handle types, and @f@ is some
+-- functor applied to each of them. Two typical instantiations are
+--
+-- > Cmd t I              (RealHandles t)   -- for the system under test
+-- > Cmd t (MockHandle t) (RealHandles t)   -- for the mock
+data family Cmd t :: (Type -> Type) -> [Type] -> Type
+
+-- | Responses
+--
+-- The type arguments are similar to those of @Cmd@. Two typical instances:
+--
+-- > Resp t I              (RealHandles t)  -- for the system under test
+-- > Resp t (MockHandle t) (RealHandles t)  -- for the mock
+data family Resp t :: (Type -> Type) -> [Type] -> Type
+
+-- | Tags
+--
+-- Tags are used when labelling execution runs in 'prop_sequential', as well as
+-- when looking for minimal examples with a given label
+-- ('showLabelledExamples').
+type family Tag t :: Type
 
 {-------------------------------------------------------------------------------
   Reference environments
@@ -164,15 +209,19 @@ instance ( ToExpr (MockState t)
          , All (And ToExpr (Compose ToExpr (MockHandle t))) (RealHandles t)
          ) => ToExpr (Model t Concrete)
 
-initModel :: StateMachineTest t -> Model t r
+initModel :: StateMachineTest t m -> Model t r
 initModel StateMachineTest{..} = Model initMock (Refss (hpure (Refs [])))
 
 {-------------------------------------------------------------------------------
   High level API
 -------------------------------------------------------------------------------}
 
-data StateMachineTest t =
-    ( Monad (RealMonad t)
+-- | State machine test
+--
+-- This captures the design patterns sketched in
+-- <https://well-typed.com/blog/2019/01/qsm-in-depth/>.
+data StateMachineTest t m =
+    ( Monad m
     -- Requirements on the handles
     , All Typeable                                     (RealHandles t)
     , All Eq                                           (RealHandles t)
@@ -191,19 +240,37 @@ data StateMachineTest t =
     -- MockState
     , Show   (MockState t)
     , ToExpr (MockState t)
+    -- Tags
+    , Show (Tag t)
     ) => StateMachineTest {
       runMock    :: Cmd t (MockHandle t) (RealHandles t) -> MockState t -> (Resp t (MockHandle t) (RealHandles t), MockState t)
-    , runReal    :: Cmd t I              (RealHandles t) -> RealMonad t (Resp t I (RealHandles t))
+    , runReal    :: Cmd t I              (RealHandles t) -> m (Resp t I (RealHandles t))
     , initMock   :: MockState t
     , newHandles :: forall f. Resp t f (RealHandles t) -> NP ([] :.: f) (RealHandles t)
     , generator  :: Model t Symbolic -> Maybe (Gen (Cmd t :@ Symbolic))
     , shrinker   :: Model t Symbolic -> Cmd t :@ Symbolic -> [Cmd t :@ Symbolic]
-    , cleanup    :: Model t Concrete -> RealMonad t ()
+    , cleanup    :: Model t Concrete -> m ()
+    , tag        :: [Event t Symbolic] -> [Tag t]
     }
 
-semantics :: StateMachineTest t
+hoistStateMachineTest :: Monad n
+                      => (forall a. m a -> n a)
+                      -> StateMachineTest t m
+                      -> StateMachineTest t n
+hoistStateMachineTest f StateMachineTest {..} = StateMachineTest {
+      runMock    = runMock
+    , runReal    = f . runReal
+    , initMock   = initMock
+    , newHandles = newHandles
+    , generator  = generator
+    , shrinker   = shrinker
+    , cleanup    = f . cleanup
+    , tag        = tag
+    }
+
+semantics :: StateMachineTest t m
           -> Cmd t :@ Concrete
-          -> RealMonad t (Resp t :@ Concrete)
+          -> m (Resp t :@ Concrete)
 semantics StateMachineTest{..} (At c) =
     (At . ncfmap (Proxy @Typeable) (const wrapConcrete)) <$>
       runReal (nfmap (const unwrapConcrete) c)
@@ -234,7 +301,7 @@ toMockHandles rss (At fr) =
     find refss ix r = unRefs (npAt refss ix) ! r
 
 step :: Eq1 r
-     => StateMachineTest t
+     => StateMachineTest t m
      -> Model t r
      -> Cmd t :@ r
      -> (Resp t (MockHandle t) (RealHandles t), MockState t)
@@ -248,8 +315,8 @@ data Event t r = Event {
     , mockResp :: Resp t (MockHandle t) (RealHandles t)
     }
 
-lockstep :: forall t r. Eq1 r
-         => StateMachineTest t
+lockstep :: forall t m r. Eq1 r
+         => StateMachineTest t m
          -> Model t    r
          -> Cmd   t :@ r
          -> Resp  t :@ r
@@ -267,14 +334,14 @@ lockstep sm@StateMachineTest{..} m@(Model _ rss) c (At resp) = Event {
     rss' = zipHandles (newHandles resp) (newHandles resp')
 
 transition :: Eq1 r
-           => StateMachineTest t
+           => StateMachineTest t m
            -> Model t    r
            -> Cmd   t :@ r
            -> Resp  t :@ r
            -> Model t    r
 transition sm m c = after . lockstep sm m c
 
-postcondition :: StateMachineTest t
+postcondition :: StateMachineTest t m
               -> Model t    Concrete
               -> Cmd   t :@ Concrete
               -> Resp  t :@ Concrete
@@ -284,7 +351,7 @@ postcondition sm@StateMachineTest{} m c r =
   where
     e = lockstep sm m c r
 
-symbolicResp :: StateMachineTest t
+symbolicResp :: StateMachineTest t m
              -> Model t Symbolic
              -> Cmd t :@ Symbolic
              -> GenSym (Resp t :@ Symbolic)
@@ -307,8 +374,8 @@ precondition (Model _ (Refss hs)) (At c) =
     sameRef :: Reference a Symbolic -> Reference a Symbolic -> Bool
     sameRef (QSM.Reference (QSM.Symbolic v)) (QSM.Reference (QSM.Symbolic v')) = v == v'
 
-toStateMachine :: StateMachineTest t
-               -> StateMachine (Model t) (At (Cmd t)) (RealMonad t) (At (Resp t))
+toStateMachine :: StateMachineTest t m
+               -> StateMachine (Model t) (At (Cmd t)) m (At (Resp t))
 toStateMachine sm@StateMachineTest{} = StateMachine {
       initModel     = initModel     sm
     , transition    = transition    sm
@@ -322,30 +389,97 @@ toStateMachine sm@StateMachineTest{} = StateMachine {
     , invariant     = Nothing
     }
 
-prop_sequential :: RealMonad t ~ IO
-                => StateMachineTest t
+-- | Sequential test
+prop_sequential :: forall t.
+                   StateMachineTest t IO
                 -> Maybe Int   -- ^ (Optional) minimum number of commands
                 -> Property
-prop_sequential sm@StateMachineTest{} mMinSize =
+prop_sequential sm@StateMachineTest{..} mMinSize =
     forAllCommands sm' mMinSize $ \cmds ->
       monadicIO $ do
         (hist, _model, res) <- runCommands sm' cmds
         prettyCommands sm' hist
+          $ tabulate "Tags" (map show $ tagCmds cmds)
           $ res === Ok
   where
     sm' = toStateMachine sm
 
-prop_parallel :: RealMonad t ~ IO
-              => StateMachineTest t
+    tagCmds :: QSM.Commands (At (Cmd t)) (At (Resp t)) -> [Tag t]
+    tagCmds = tag . map (fromLabelEvent sm) . Label.execCmds sm'
+
+-- | Parallel test
+--
+-- NOTE: This currently does not do labelling.
+prop_parallel :: StateMachineTest t IO
               -> Maybe Int   -- ^ (Optional) minimum number of commands
               -> Property
 prop_parallel sm@StateMachineTest{} mMinSize =
     forAllParallelCommands sm' mMinSize $ \cmds ->
-      monadicIO $
-            prettyParallelCommands cmds
-        =<< runParallelCommands sm' cmds
+      monadicIO $ do
+        hist <- runParallelCommands sm' cmds
+        -- TODO: Ideally we would tag here as well, but unlike 'prettyCommands',
+        -- 'prettyParallelCommands' does not give us a hook to specify a
+        -- 'Property', so this would require a change to the QSM core.
+        prettyParallelCommands cmds hist
   where
     sm' = toStateMachine sm
+
+{-------------------------------------------------------------------------------
+  Labelling
+-------------------------------------------------------------------------------}
+
+-- | Translate QSM's 'Label.Event' into our 'Event'
+--
+-- The QSM 'Label.Event' is purely in terms of symbolic references. In order to
+-- construct our 'Event' from this, we need to reconstruct the mock response.
+-- We can do this, because we maintain a mapping between references and mock
+-- handles in the model, irrespective of whether those references are symbolic
+-- (as here) or concrete (during test execution). We can therefore apply this
+-- mapping, and re-compute the mock response.
+--
+-- We could use 'lockstep' instead of 'step', but this would recompute the
+-- new state, which is not necessary.
+--
+-- NOTE: This forgets the symbolic response in favour of the mock response.
+-- This seems more in line with what we do elsewhere in the lockstep
+-- infrastructure, but we could conceivably return both.
+fromLabelEvent :: StateMachineTest t m
+               -> Label.Event (Model t) (At (Cmd t)) (At (Resp t)) Symbolic
+               -> Event t Symbolic
+fromLabelEvent sm Label.Event{..} = Event{
+      before   = eventBefore
+    , cmd      = eventCmd
+    , after    = eventAfter
+    , mockResp = resp'
+    }
+  where
+    (resp', _st') = step sm eventBefore eventCmd
+
+-- | Show minimal examples for each of the generated tags.
+--
+-- This is the analogue of 'Test.StateMachine.showLabelledExamples''.
+-- See also 'showLabelledExamples'.
+showLabelledExamples' :: StateMachineTest t m
+                      -> Maybe Int
+                      -- ^ Seed
+                      -> Int
+                      -- ^ Number of tests to run to find examples
+                      -> (Tag t -> Bool)
+                      -- ^ Tag filter (can be @const True@)
+                      -> IO ()
+showLabelledExamples' sm@StateMachineTest{..} mReplay numTests =
+    Seq.showLabelledExamples'
+      (toStateMachine sm)
+      mReplay
+      numTests
+      (tag . map (fromLabelEvent sm))
+
+-- | Simplified form of 'showLabelledExamples''
+showLabelledExamples :: StateMachineTest t m -> IO ()
+showLabelledExamples sm@StateMachineTest{..} =
+    Seq.showLabelledExamples
+      (toStateMachine sm)
+      (tag . map (fromLabelEvent sm))
 
 {-------------------------------------------------------------------------------
   Rank2 instances

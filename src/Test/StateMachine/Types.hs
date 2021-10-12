@@ -120,7 +120,7 @@ data Reason
   | PostconditionFailed String
   | InvariantBroken String
   | ExceptionThrown String
-  | MockSemanticsMismatch
+  | MockSemanticsMismatch String
   deriving stock (Eq, Show)
 
 isOK :: Reason -> Bool

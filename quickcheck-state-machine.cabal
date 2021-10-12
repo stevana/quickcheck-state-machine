@@ -98,10 +98,12 @@ test-suite quickcheck-state-machine-test
                        monad-logger,
                        mtl,
                        network,
-                       persistent >= 2.10.3,
+                       -- if we want to use later versions of persistent, we
+                       -- need to make some minor changes to the test suite:
+                       persistent             >= 2.10.4 && < 2.11,
                        persistent-postgresql,
-                       persistent-sqlite,
-                       persistent-template,
+                       persistent-sqlite      < 2.11,
+                       persistent-template    < 2.11,
                        postgresql-simple,
                        pretty-show,
                        process,

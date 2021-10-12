@@ -20,8 +20,10 @@ module Test.StateMachine.Lockstep.Simple (
   , RealHandle
   , MockHandle
   , Test
+  , Tag
     -- * Test term-level parameters
   , StateMachineTest(..)
+  , Event(..)
     -- * Handle instantiation
   , At(..)
   , (:@)
@@ -45,7 +47,7 @@ import           Test.QuickCheck
 import           Test.StateMachine
 import           Test.StateMachine.Lockstep.Auxiliary
 import           Test.StateMachine.Lockstep.NAry
-                   (MockState)
+                   (MockState, Tag)
 
 import qualified Test.StateMachine.Lockstep.NAry      as NAry
 
@@ -53,10 +55,36 @@ import qualified Test.StateMachine.Lockstep.NAry      as NAry
   Top-level parameters
 -------------------------------------------------------------------------------}
 
-data family Cmd        t :: Type -> Type
-data family Resp       t :: Type -> Type
+-- | The type of the real handle in the system under test
+--
+-- The key difference between the " simple " lockstep infrastructure and the
+-- n-ary lockstep infrastructure is that the former only supports a single
+-- real handle, whereas the latter supports an arbitrary list of them.
 data family RealHandle t :: Type
+
+-- | The type of the mock handle
+--
+-- NOTE: In the n-ary infrastructure, 'MockHandle' is a type family of /two/
+-- arguments, because we have a mock handle for each real handle. Here, however,
+-- we only /have/ a single real handle, so the " corresponding " real handle
+-- is implicitly @RealHandle t@.
 data family MockHandle t :: Type
+
+-- | Commands
+--
+-- In @Cmd t h@, @h@ is the type of the handle
+--
+-- > Cmd t (RealHandle t)  -- for the system under test
+-- > Cmd t (MockHandle t)  -- for the mock
+data family Cmd t :: Type -> Type
+
+-- | Responses
+--
+-- In @Resp t h@, @h@ is the type of the handle
+--
+-- > Resp t (RealHandle t)  -- for the system under test
+-- > Resp t (MockHandle t)  -- for the mock
+data family Resp t :: Type -> Type
 
 {-------------------------------------------------------------------------------
   Default handle instantiation
@@ -87,15 +115,33 @@ modelToSimple NAry.Model{modelRefss = NAry.Refss (NAry.Refs rs :* Nil), ..} = Mo
     }
 
 {-------------------------------------------------------------------------------
+  Simplified event
+-------------------------------------------------------------------------------}
+
+data Event t r = Event {
+      before   :: Model t    r
+    , cmd      :: Cmd   t :@ r
+    , after    :: Model t    r
+    , mockResp :: Resp t (MockHandle t)
+    }
+
+eventToSimple :: (Functor (Cmd t), Functor (Resp t))
+              => NAry.Event (Simple t) r -> Event t r
+eventToSimple NAry.Event{..} = Event{
+      before   = modelToSimple before
+    , cmd      = cmdAtToSimple cmd
+    , after    = modelToSimple after
+    , mockResp = respMockToSimple mockResp
+    }
+
+{-------------------------------------------------------------------------------
   Wrap and unwrap
 -------------------------------------------------------------------------------}
 
-cmdAtFromSimple :: Functor (Cmd t)
-                => Cmd t :@ Symbolic -> NAry.Cmd (Simple t) NAry.:@ Symbolic
+cmdAtFromSimple :: Functor (Cmd t) => Cmd t :@ r -> NAry.Cmd (Simple t) NAry.:@ r
 cmdAtFromSimple = NAry.At . SimpleCmd . fmap NAry.FlipRef . unAt
 
-cmdAtToSimple :: Functor (Cmd t)
-              => NAry.Cmd (Simple t) NAry.:@ Symbolic -> Cmd t :@ Symbolic
+cmdAtToSimple :: Functor (Cmd t) => NAry.Cmd (Simple t) NAry.:@ r -> Cmd t :@ r
 cmdAtToSimple = At . fmap (NAry.unFlipRef) . unSimpleCmd . NAry.unAt
 
 cmdMockToSimple :: Functor (Cmd t)
@@ -113,6 +159,11 @@ respMockFromSimple :: Functor (Resp t)
                    -> NAry.Resp (Simple t) (NAry.MockHandle (Simple t)) '[RealHandle t]
 respMockFromSimple = SimpleResp . fmap SimpleToMock
 
+respMockToSimple :: Functor (Resp t)
+                 => NAry.Resp (Simple t) (NAry.MockHandle (Simple t)) '[RealHandle t]
+                 -> Resp t (MockHandle t)
+respMockToSimple = fmap unSimpleToMock . unSimpleResp
+
 respRealFromSimple :: Functor (Resp t)
                    => Resp t (RealHandle t)
                    -> NAry.Resp (Simple t) I '[RealHandle t]
@@ -122,6 +173,12 @@ respRealFromSimple = SimpleResp . fmap I
   User defined values
 -------------------------------------------------------------------------------}
 
+-- | State machine test
+--
+-- This captures the design patterns sketched in
+-- <https://well-typed.com/blog/2019/01/qsm-in-depth/> for the case where there
+-- is exactly one real handle. See "Test.StateMachine.Lockstep.NAry" for the
+-- generalization to @n@ handles.
 data StateMachineTest t =
     ( Typeable t
       -- Response
@@ -145,6 +202,8 @@ data StateMachineTest t =
       -- Mock state
     , Show   (MockState t)
     , ToExpr (MockState t)
+      -- Tags
+    , Show (Tag t)
     ) => StateMachineTest {
       runMock    :: Cmd t (MockHandle t) -> MockState t -> (Resp t (MockHandle t), MockState t)
     , runReal    :: Cmd t (RealHandle t) -> IO (Resp t (RealHandle t))
@@ -153,13 +212,14 @@ data StateMachineTest t =
     , generator  :: Model t Symbolic -> Maybe (Gen (Cmd t :@ Symbolic))
     , shrinker   :: Model t Symbolic -> Cmd t :@ Symbolic -> [Cmd t :@ Symbolic]
     , cleanup    :: Model t Concrete -> IO ()
+    , tag        :: [Event t Symbolic] -> [Tag t]
     }
 
 data Simple t
 
 type instance NAry.MockState   (Simple t) = MockState t
 type instance NAry.RealHandles (Simple t) = '[RealHandle t]
-type instance NAry.RealMonad   (Simple _) = IO
+type instance NAry.Tag         (Simple t) = Tag t
 
 data instance NAry.Cmd (Simple _) _f _hs where
     SimpleCmd :: Cmd t (f h) -> NAry.Cmd (Simple t) f '[h]
@@ -212,7 +272,7 @@ instance ToExpr (MockHandle t)
       => ToExpr (NAry.MockHandle (Simple t) (RealHandle t)) where
   toExpr (SimpleToMock h) = toExpr h
 
-fromSimple :: StateMachineTest t -> NAry.StateMachineTest (Simple t)
+fromSimple :: StateMachineTest t -> NAry.StateMachineTest (Simple t) IO
 fromSimple StateMachineTest{..} = NAry.StateMachineTest {
       runMock    = \cmd st -> first respMockFromSimple (runMock (cmdMockToSimple cmd) st)
     , runReal    = \cmd -> respRealFromSimple <$> (runReal (cmdRealToSimple cmd))
@@ -221,6 +281,7 @@ fromSimple StateMachineTest{..} = NAry.StateMachineTest {
     , generator  = \m     -> fmap cmdAtFromSimple <$> generator (modelToSimple m)
     , shrinker   = \m cmd ->      cmdAtFromSimple <$> shrinker  (modelToSimple m) (cmdAtToSimple cmd)
     , cleanup    = cleanup   . modelToSimple
+    , tag        = tag . map eventToSimple
     }
 
 {-------------------------------------------------------------------------------

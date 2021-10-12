@@ -102,8 +102,7 @@ smUnused = echoSM $ error "used env during command generation"
 
 echoSM :: Env -> StateMachine Model Action IO Response
 echoSM env = StateMachine
-    { initModel = Empty
-    -- ^ At the beginning of time nothing was received.
+    { initModel = Empty -- At the beginning of time nothing was received.
     , transition = mTransitions
     , precondition = mPreconditions
     , postcondition = mPostconditions

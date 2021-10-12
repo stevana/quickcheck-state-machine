@@ -398,8 +398,8 @@ executeCommands StateMachine {..} hchan pid check =
               if length vars /= length cvars
               then do
                 let err = mockSemanticsMismatchError (ppShow ccmd) (ppShow vars) (ppShow cresp) (ppShow cvars)
-                atomically (writeTChan hchan (pid, Exception err))
-                return MockSemanticsMismatch
+                atomically (writeTChan hchan (pid, Response cresp))
+                return $ MockSemanticsMismatch err
               else do
                 atomically (writeTChan hchan (pid, Response cresp))
                 case (check, logic (postcondition cmodel ccmd cresp)) of
@@ -444,8 +444,7 @@ executeCommands StateMachine {..} hchan pid check =
       , ""
       , "Continuing to execute commands at this point could result in scope"
       , "errors, because we might have commands that use references (returned"
-      , "by `mock`) that are not available (returned by `semantics`), to avoid"
-      , "this please fix the mismatch."
+      , "by `mock`) that are not available (returned by `semantics`)."
       , ""
       ]
 
