@@ -78,12 +78,49 @@ import           Test.StateMachine.Lockstep.Auxiliary
   Test type-level parameters
 -------------------------------------------------------------------------------}
 
-type family MockState   t   :: Type
-data family Cmd         t   :: (Type -> Type) -> [Type] -> Type
-data family Resp        t   :: (Type -> Type) -> [Type] -> Type
-type family RealHandles t   :: [Type]
-data family MockHandle  t a :: Type
-type family Tag         t   :: Type
+-- | Mock state
+--
+-- The @t@ argument (here and elsewhere) is a type-level tag that combines all
+-- aspects of the test; it does not need any term-level constructors
+--
+-- > data MyTest
+-- > type instance MockState MyTest = ..
+type family MockState t :: Type
+
+-- | Type-level list of the types of the handles in the system under test
+--
+-- NOTE: If your system under test only requires a single real handle, you
+-- might consider using "Test.StateMachine.Lockstep.Simple" instead.
+type family RealHandles t :: [Type]
+
+-- | Mock handles
+--
+-- For each real handle @a@, @MockHandle t a@ is the corresponding mock handle.
+data family MockHandle t a :: Type
+
+-- | Commands
+--
+-- In @Cmd t f hs@, @hs@ is the list of real handle types, and @f@ is some
+-- functor applied to each of them. Two typical instantiations are
+--
+-- > Cmd t I              (RealHandles t)   -- for the system under test
+-- > Cmd t (MockHandle t) (RealHandles t)   -- for the mock
+data family Cmd t :: (Type -> Type) -> [Type] -> Type
+
+-- | Responses
+--
+-- The type arguments are similar to those of @Cmd@. Two typical instances:
+--
+-- > Resp t I              (RealHandles t)  -- for the system under test
+-- > Resp t (MockHandle t) (RealHandles t)  -- for the mock
+data family Resp t :: (Type -> Type) -> [Type] -> Type
+
+-- | Tags
+--
+-- Tags are used when labelling execution runs in 'prop_sequential', as well as
+-- when looking for minimal examples with a given label
+-- ('showLabelledExamples').
+type family Tag t :: Type
 
 {-------------------------------------------------------------------------------
   Reference environments
@@ -179,6 +216,10 @@ initModel StateMachineTest{..} = Model initMock (Refss (hpure (Refs [])))
   High level API
 -------------------------------------------------------------------------------}
 
+-- | State machine test
+--
+-- This captures the design patterns sketched in
+-- <https://well-typed.com/blog/2019/01/qsm-in-depth/>.
 data StateMachineTest t m =
     ( Monad m
     -- Requirements on the handles

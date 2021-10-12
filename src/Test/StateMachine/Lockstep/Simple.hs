@@ -55,10 +55,36 @@ import qualified Test.StateMachine.Lockstep.NAry      as NAry
   Top-level parameters
 -------------------------------------------------------------------------------}
 
-data family Cmd        t :: Type -> Type
-data family Resp       t :: Type -> Type
+-- | The type of the real handle in the system under test
+--
+-- The key difference between the " simple " lockstep infrastructure and the
+-- n-ary lockstep infrastructure is that the former only supports a single
+-- real handle, whereas the latter supports an arbitrary list of them.
 data family RealHandle t :: Type
+
+-- | The type of the mock handle
+--
+-- NOTE: In the n-ary infrastructure, 'MockHandle' is a type family of /two/
+-- arguments, because we have a mock handle for each real handle. Here, however,
+-- we only /have/ a single real handle, so the " corresponding " real handle
+-- is implicitly @RealHandle t@.
 data family MockHandle t :: Type
+
+-- | Commands
+--
+-- In @Cmd t h@, @h@ is the type of the handle
+--
+-- > Cmd t (RealHandle t)  -- for the system under test
+-- > Cmd t (MockHandle t)  -- for the mock
+data family Cmd t :: Type -> Type
+
+-- | Responses
+--
+-- In @Resp t h@, @h@ is the type of the handle
+--
+-- > Resp t (RealHandle t)  -- for the system under test
+-- > Resp t (MockHandle t)  -- for the mock
+data family Resp t :: Type -> Type
 
 {-------------------------------------------------------------------------------
   Default handle instantiation
@@ -147,6 +173,12 @@ respRealFromSimple = SimpleResp . fmap I
   User defined values
 -------------------------------------------------------------------------------}
 
+-- | State machine test
+--
+-- This captures the design patterns sketched in
+-- <https://well-typed.com/blog/2019/01/qsm-in-depth/> for the case where there
+-- is exactly one real handle. See "Test.StateMachine.Lockstep.NAry" for the
+-- generalization to @n@ handles.
 data StateMachineTest t =
     ( Typeable t
       -- Response
