@@ -469,7 +469,7 @@ More examples from the "real world":
   * IOHK are using a state machine models in several
     [places](https://github.com/search?l=Haskell&q=org%3Ainput-output-hk+Test.StateMachine&type=Code).
     For example
-    [here](https://github.com/input-output-hk/ouroboros-network/blob/master/ouroboros-consensus/test-storage/Test/Ouroboros/Storage/FS/StateMachine.hs)
+    [here](https://github.com/input-output-hk/ouroboros-network/blob/master/ouroboros-consensus-test/test-storage/Test/Ouroboros/Storage/FS/StateMachine.hs)
     is a test of a mock file system that they in turn use to simulate file
     system errors when testing a blockchain database. The following blog
     [post](http://www.well-typed.com/blog/2019/01/qsm-in-depth/) describes their
