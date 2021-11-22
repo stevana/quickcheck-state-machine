@@ -179,7 +179,7 @@ record.
 ```haskell
 sm :: Bug -> StateMachine Model Command IO Response
 sm bug = StateMachine initModel transition precondition postcondition
-           Nothing generator shrinker (semantics bug) mock
+           Nothing generator shrinker (semantics bug) mock noCleanup
 ```
 
 We can now define a sequential property as follows.
@@ -240,7 +240,7 @@ If we however define a parallel property as follows.
 
 ```haskell
 prop_parallel :: Bug -> Property
-prop_parallel bug = forAllParallelCommands sm' $ \cmds -> monadicIO $ do
+prop_parallel bug = forAllParallelCommands sm' Nothing $ \cmds -> monadicIO $ do
   prettyParallelCommands cmds =<< runParallelCommands sm' cmds
     where
       sm' = sm bug
