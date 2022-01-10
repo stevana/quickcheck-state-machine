@@ -1,3 +1,7 @@
+#### 0.7.2 (???)
+
+  * Fix compatibility with GHC 9.0 and 9.2 (PR #7, thanks @edsko).
+
 #### 0.7.1 (2021-8-17)
 
   * Update links and references from the old archived repo at the
