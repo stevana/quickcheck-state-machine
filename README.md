@@ -345,23 +345,74 @@ explained in terms of the sequential model. This is useful for trying to find
 race conditions -- which normally can be tricky to test for. It works as
 follows:
 
-  1. generate a list of actions that will act as a sequential prefix for the
-     parallel program (think of this as an initialisation bit that setups up
-     some state);
+  1. generate a list of actions and split it in two (or more) parts:
 
-  2. generate two lists of actions that will act as parallel suffixes;
+       - a first part that will be run sequentially, called the _prefix_ (think
+         of this as an initialisation bit that setups up some state);
+       - a second part (the _suffix_) that will be split in sublists which will
+         be run in parallel (see `parallelSafe` to understand how it determines
+         that a sequence of commands can be run in parallel). More than one
+         suffix can be generated, i.e. this second step can be done multiple
+         times with the part of the generated list that doesn't belong to the
+         prefix.
 
-  3. execute the prefix sequentially;
+  2. execute the prefix sequentially as in the section above (checking pre- and
+     post-conditions);
 
-  4. execute the suffixes in parallel and gather the a trace (or history) of
-     invocations and responses of each action;
+  3. execute the suffixes in parallel without checking pre/post-conditions
+     and gather the trace (or history) of invocations and responses of each
+     action;
 
-  5. try to find a possible sequential interleaving of action invocations and
-     responses that respects the post-conditions.
+```
+                            ┌── no checks aside from ensuring no exception was thrown
+                            │
+                  ╭─────────┴──────────╮
 
-The last step basically tries to find
+                  ┌─ [C] ──┐  ┌ [F, G] ┐   ◀─╮
+Commands: [A, B] ─┤        ├──┤        │     ├─ executed `concurrently`
+                  └ [D, E] ┘  └ [H, I] ┘   ◀─╯
+
+          ╰─┬──╯       ▲          ▲
+            │          ╰─────┬────╯
+            │                └── groups are not run in parallel
+            │                    i.e [C, D, E] will run (and
+            │                    finish) before F or H are
+            │                    started
+            │
+            └── pre/postconditions and invariant checked
+                executed sequentially
+```
+
+  4. if something goes wrong when executing the commands, shrink the generated
+     commands and present a minimal counterexample;
+
+  5. otherwise, try to find a possible sequential interleaving of action
+     invocations and responses that respects the post-conditions. For each
+     interleaving, this is done by advancing the `Concrete` model (starting at
+     `initialModel`) through the sequence of pairs of invocations to `command
+     Concrete` and the returned `response Concrete` emitted at step 3, and
+     checking the post-condition for each pair.
+
+  6. if no possible sequential interleaving was found, then shrink the generated
+     commands and present a minimal counterexample.
+
+The last two steps basically try to find
 a [linearisation](https://en.wikipedia.org/wiki/Linearizability) of calls that
 could have happend on a single thread.
+
+Notice that step 5 above introduces a subtlety in the post-condition checks and
+transitions for the `model Concrete`. Despite the system under test running in a
+concurrent way, the model can still be designed to work sequentially as *it will
+not be run in parallel*, it will only be advanced in a sequential way when
+evaluating possible interleavings. This particularly means that the model must
+be correct with respect to sequential execution before used in parallel testing.
+
+As we cannot control the actual scheduling of the tasks, each sequence of
+commands (already fixed in a concrete prefix and a concrete list of suffixes) is
+actually executed several times by default, i.e. steps 2 to 6 will be executed
+multiple times for the same test case expecting that the scheduling of events
+varies between runs. One can further increase entropy by introducing random
+`threadDelay`s in the semantic function.
 
 ### More examples
 
