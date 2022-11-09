@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE NamedFieldPuns      #-}
@@ -190,7 +191,7 @@ pickOneReturnRestL ls = concatMap
 
 -----------------------------------------------------------------------------
 
-mkModel :: StateMachine model cmd m resp -> History cmd resp  -> model Concrete
+mkModel :: c Concrete => StateMachine' c model cmd m resp -> History cmd resp  -> model Concrete
 mkModel StateMachine {transition, initModel} =
   go initModel . operationsPath . interleavings . unHistory
     where

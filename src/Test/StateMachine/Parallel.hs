@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE Rank2Types          #-}
@@ -97,7 +98,8 @@ import           Test.StateMachine.Utils
 forAllParallelCommands :: Testable prop
                        => (Show (cmd Symbolic), Show (resp Symbolic), Show (model Symbolic))
                        => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                       => StateMachine model cmd m resp
+                       => c Symbolic
+                       => StateMachine' c model cmd m resp
                        -> Maybe Int
                        -> (ParallelCommands cmd resp -> prop)     -- ^ Predicate.
                        -> Property
@@ -108,7 +110,8 @@ forAllParallelCommands sm mminSize =
 forAllNParallelCommands :: Testable prop
                         => (Show (cmd Symbolic), Show (resp Symbolic), Show (model Symbolic))
                         => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                        => StateMachine model cmd m resp
+                        => c Symbolic
+                        => StateMachine' c model cmd m resp
                         -> Int                                      -- ^ Number of threads
                         -> (NParallelCommands cmd resp -> prop)     -- ^ Predicate.
                         -> Property
@@ -156,10 +159,11 @@ forAllNParallelCommands sm np =
 -- > [A, B] ─┤        ├──┤        │
 -- >         └ [D, E] ┘  └ [H, I] ┘
 --
-generateParallelCommands :: forall model cmd m resp. Rank2.Foldable resp
+generateParallelCommands :: forall c model cmd m resp. Rank2.Foldable resp
                          => Show (model Symbolic)
                          => (Show (cmd Symbolic), Show (resp Symbolic))
-                         => StateMachine model cmd m resp
+                         => c Symbolic
+                         => StateMachine' c model cmd m resp
                          -> Maybe Int
                          -> Gen (ParallelCommands cmd resp)
 generateParallelCommands sm@StateMachine { initModel } mminSize  = do
@@ -185,7 +189,8 @@ generateParallelCommands sm@StateMachine { initModel } mminSize  = do
 -- for permutation of the list, i.e. it is parallel safe. The other
 -- half is the remainder of the input list.
 spanSafe :: Rank2.Foldable resp
-         => StateMachine model cmd m resp
+         => c Symbolic
+         => StateMachine' c model cmd m resp
          -> model Symbolic -> [Command cmd resp] -> [Command cmd resp]
          -> ([Command cmd resp], [Command cmd resp])
 spanSafe _ _     safe []           = (reverse safe, [])
@@ -198,10 +203,11 @@ spanSafe sm model safe (cmd : cmds)
 
 -- Generate Parallel commands. The length of each suffix, indicates how many thread can
 -- concurrently execute the commands safely.
-generateNParallelCommands :: forall model cmd m resp. Rank2.Foldable resp
+generateNParallelCommands :: forall c model cmd m resp. Rank2.Foldable resp
                           => Show (model Symbolic)
                           => (Show (cmd Symbolic), Show (resp Symbolic))
-                          => StateMachine model cmd m resp
+                          => c Symbolic
+                          => StateMachine' c model cmd m resp
                           -> Int
                           -> Gen (NParallelCommands cmd resp)
 generateNParallelCommands sm@StateMachine { initModel } np =
@@ -242,7 +248,8 @@ generateNParallelCommands sm@StateMachine { initModel } np =
 -- | A list of commands is parallel safe if the pre-conditions for all commands
 --   hold in all permutations of the list.
 parallelSafe :: Rank2.Foldable resp
-             => StateMachine model cmd m resp -> model Symbolic
+             => c Symbolic
+             => StateMachine' c model cmd m resp -> model Symbolic
              -> Commands cmd resp -> Bool
 parallelSafe StateMachine { precondition, transition, mock } model0
   = all (preconditionsHold model0)
@@ -259,7 +266,8 @@ parallelSafe StateMachine { precondition, transition, mock } model0
           length vars == length (getUsedVars $ fst $ runGenSym (mock model cmd) newCounter)
 
 -- | Apply the transition of some commands to a model.
-advanceModel :: StateMachine model cmd m resp
+advanceModel :: c Symbolic
+             => StateMachine' c model cmd m resp
              -> model Symbolic      -- ^ The model.
              -> Commands cmd resp   -- ^ The commands.
              -> model Symbolic
@@ -275,9 +283,10 @@ advanceModel StateMachine { transition } model0 =
 -- | Shrink a parallel program in a pre-condition and scope respecting
 --   way.
 shrinkParallelCommands
-  :: forall cmd model m resp. Rank2.Traversable cmd
+  :: forall c cmd model m resp. Rank2.Traversable cmd
   => Rank2.Foldable resp
-  => StateMachine model cmd m resp
+  => c Symbolic
+  => StateMachine' c model cmd m resp
   -> (ParallelCommands cmd resp -> [ParallelCommands cmd resp])
 shrinkParallelCommands sm (ParallelCommands prefix suffixes)
   = concatMap go
@@ -312,9 +321,10 @@ shrinkParallelCommands sm (ParallelCommands prefix suffixes)
 -- | Shrink a parallel program in a pre-condition and scope respecting
 --   way.
 shrinkNParallelCommands
-  :: forall cmd model m resp. Rank2.Traversable cmd
+  :: forall c cmd model m resp. Rank2.Traversable cmd
   => Rank2.Foldable resp
-  => StateMachine model cmd m resp
+  => c Symbolic
+  => StateMachine' c model cmd m resp
   -> (NParallelCommands cmd resp -> [NParallelCommands cmd resp])
 shrinkNParallelCommands sm (ParallelCommands prefix suffixes)
   = concatMap go
@@ -349,8 +359,9 @@ shrinkNParallelCommands sm (ParallelCommands prefix suffixes)
 shrinkCommands' :: Commands cmd resp -> [Shrunk (Commands cmd resp)]
 shrinkCommands' = map (fmap Commands) . shrinkListS' . unCommands
 
-shrinkAndValidateParallel :: forall model cmd m resp. (Rank2.Traversable cmd, Rank2.Foldable resp)
-                          => StateMachine model cmd m resp
+shrinkAndValidateParallel :: forall c model cmd m resp. (Rank2.Traversable cmd, Rank2.Foldable resp)
+                          => c Symbolic
+                          => StateMachine' c model cmd m resp
                           -> ShouldShrink
                           -> ParallelCommands cmd resp
                           -> [ParallelCommands cmd resp]
@@ -391,7 +402,8 @@ shrinkAndValidateParallel sm@StateMachine { initModel } = \shouldShrink (Paralle
                                 , ((DontShrink, MustShrink), DontShrink)
                                 , ((DontShrink, DontShrink), MustShrink) ]
 
-combineEnv :: StateMachine model cmd m resp
+combineEnv :: c Symbolic
+           => StateMachine' c model cmd m resp
            -> ValidateEnv model
            -> ValidateEnv model
            -> Commands cmd resp
@@ -405,8 +417,9 @@ combineEnv sm envL envR cmds = ValidateEnv {
 withCounterFrom :: ValidateEnv model -> ValidateEnv model -> ValidateEnv model
 withCounterFrom e e' = e { veCounter = veCounter e' }
 
-shrinkAndValidateNParallel :: forall model cmd m resp. (Rank2.Traversable cmd, Rank2.Foldable resp)
-                           => StateMachine model cmd m resp
+shrinkAndValidateNParallel :: forall c model cmd m resp. (Rank2.Traversable cmd, Rank2.Foldable resp)
+                           => c Symbolic
+                           => StateMachine' c model cmd m resp
                            -> ShouldShrink
                            -> NParallelCommands cmd resp
                            -> [NParallelCommands cmd resp]
@@ -470,7 +483,8 @@ shrinkAndValidateNParallel sm = \shouldShrink  (ParallelCommands prefix suffixes
 runParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
                     => (Rank2.Traversable cmd, Rank2.Foldable resp)
                     => (MonadMask m, MonadUnliftIO m)
-                    => StateMachine model cmd m resp
+                    => (c Symbolic, c Concrete)
+                    => StateMachine' c model cmd m resp
                     -> ParallelCommands cmd resp
                     -> PropertyM m [(History cmd resp, Logic)]
 runParallelCommands = runParallelCommandsNTimes 10
@@ -478,7 +492,8 @@ runParallelCommands = runParallelCommandsNTimes 10
 runParallelCommands' :: (Show (cmd Concrete), Show (resp Concrete))
                      => (Rank2.Traversable cmd, Rank2.Foldable resp)
                      => (MonadMask m, MonadUnliftIO m)
-                     => StateMachine model cmd m resp
+                     => (c Symbolic, c Concrete)
+                     => StateMachine' c model cmd m resp
                      -> (cmd Concrete -> resp Concrete)
                      -> ParallelCommands cmd resp
                      -> PropertyM m [(History cmd resp, Logic)]
@@ -487,7 +502,8 @@ runParallelCommands' = runParallelCommandsNTimes' 10
 runNParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
                      => (Rank2.Traversable cmd, Rank2.Foldable resp)
                      => (MonadMask m, MonadUnliftIO m)
-                     => StateMachine model cmd m resp
+                     => (c Symbolic, c Concrete)
+                     => StateMachine' c model cmd m resp
                      -> NParallelCommands cmd resp
                      -> PropertyM m [(History cmd resp, Logic)]
 runNParallelCommands = runNParallelCommandsNTimes 10
@@ -495,8 +511,9 @@ runNParallelCommands = runNParallelCommandsNTimes 10
 runParallelCommandsNTimes :: (Show (cmd Concrete), Show (resp Concrete))
                           => (Rank2.Traversable cmd, Rank2.Foldable resp)
                           => (MonadMask m, MonadUnliftIO m)
+                          => (c Symbolic, c Concrete)
                           => Int -- ^ How many times to execute the parallel program.
-                          -> StateMachine model cmd m resp
+                          -> StateMachine' c model cmd m resp
                           -> ParallelCommands cmd resp
                           -> PropertyM m [(History cmd resp, Logic)]
 runParallelCommandsNTimes n sm cmds =
@@ -507,8 +524,9 @@ runParallelCommandsNTimes n sm cmds =
 runParallelCommandsNTimes' :: (Show (cmd Concrete), Show (resp Concrete))
                            => (Rank2.Traversable cmd, Rank2.Foldable resp)
                            => (MonadMask m, MonadUnliftIO m)
+                           => (c Symbolic, c Concrete)
                            => Int -- ^ How many times to execute the parallel program.
-                           -> StateMachine model cmd m resp
+                           -> StateMachine' c model cmd m resp
                            -> (cmd Concrete -> resp Concrete)
                            -> ParallelCommands cmd resp
                            -> PropertyM m [(History cmd resp, Logic)]
@@ -521,8 +539,9 @@ runParallelCommandsNTimes' n sm complete cmds =
 runNParallelCommandsNTimes :: (Show (cmd Concrete), Show (resp Concrete))
                            => (Rank2.Traversable cmd, Rank2.Foldable resp)
                            => (MonadMask m, MonadUnliftIO m)
+                           => (c Symbolic, c Concrete)
                            => Int -- ^ How many times to execute the parallel program.
-                           -> StateMachine model cmd m resp
+                           -> StateMachine' c model cmd m resp
                            -> NParallelCommands cmd resp
                            -> PropertyM m [(History cmd resp, Logic)]
 runNParallelCommandsNTimes n sm cmds =
@@ -533,8 +552,9 @@ runNParallelCommandsNTimes n sm cmds =
 runNParallelCommandsNTimes' :: (Show (cmd Concrete), Show (resp Concrete))
                             => (Rank2.Traversable cmd, Rank2.Foldable resp)
                             => (MonadMask m, MonadUnliftIO m)
+                            => (c Symbolic, c Concrete)
                             => Int -- ^ How many times to execute the parallel program.
-                            -> StateMachine model cmd m resp
+                            -> StateMachine' c model cmd m resp
                             -> (cmd Concrete -> resp Concrete)
                             -> NParallelCommands cmd resp
                             -> PropertyM m [(History cmd resp, Logic)]
@@ -547,7 +567,8 @@ runNParallelCommandsNTimes' n sm complete cmds =
 executeParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
                         => (Rank2.Traversable cmd, Rank2.Foldable resp)
                         => (MonadMask m, MonadUnliftIO m)
-                        => StateMachine model cmd m resp
+                        => (c Symbolic, c Concrete)
+                        => StateMachine' c model cmd m resp
                         -> ParallelCommands cmd resp
                         -> Bool
                         -> m (History cmd resp, Reason, Reason)
@@ -633,7 +654,8 @@ logicReason r  = Annotate (show r) Bot
 executeNParallelCommands :: (Rank2.Traversable cmd, Show (cmd Concrete), Rank2.Foldable resp)
                          => Show (resp Concrete)
                          => (MonadMask m, MonadUnliftIO m)
-                         => StateMachine model cmd m resp
+                         => (c Symbolic, c Concrete)
+                         => StateMachine' c model cmd m resp
                          -> NParallelCommands cmd resp
                          -> Bool
                          -> m (History cmd resp, Reason)
@@ -695,8 +717,8 @@ isPreconditionFailed _                     = False
 -- | Try to linearise a history of a parallel program execution using a
 --   sequential model. See the *Linearizability: a correctness condition for
 --   concurrent objects* paper linked to from the README for more info.
-linearise :: forall model cmd m resp. (Show (cmd Concrete), Show (resp Concrete))
-          => StateMachine model cmd m resp -> History cmd resp -> Logic
+linearise :: forall c model cmd m resp. (Show (cmd Concrete), Show (resp Concrete), c Concrete)
+          => StateMachine' c model cmd m resp -> History cmd resp -> Logic
 linearise StateMachine { transition,  postcondition, initModel } = go . unHistory
   where
     go :: [(Pid, HistoryEvent cmd resp)] -> Logic

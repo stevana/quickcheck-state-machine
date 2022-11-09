@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveFoldable             #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveTraversable          #-}
@@ -22,7 +23,8 @@
 -----------------------------------------------------------------------------
 
 module Test.StateMachine.Types
-  ( StateMachine(..)
+  ( StateMachine'(..)
+  , StateMachine
   , Command(..)
   , getCommand
   , Commands(..)
@@ -47,6 +49,8 @@ module Test.StateMachine.Types
 import           Data.Functor.Classes
                    (Ord1, Show1)
 import           Data.Semigroup
+import           Data.SOP.Constraint
+                   (Top)
 import           Prelude
 import           Test.QuickCheck
                    (Gen)
@@ -59,9 +63,11 @@ import           Test.StateMachine.Types.References
 
 ------------------------------------------------------------------------
 
-data StateMachine model cmd m resp = StateMachine
-  { initModel      :: forall r. model r
-  , transition     :: forall r. (Show1 r, Ord1 r) => model r -> cmd r -> resp r -> model r
+type StateMachine model cmd m resp = StateMachine' Top model cmd m resp
+
+data StateMachine' c model cmd m resp = StateMachine
+  { initModel      :: forall r. c r => model r
+  , transition     :: forall r. (c r, Show1 r, Ord1 r) => model r -> cmd r -> resp r -> model r
   , precondition   :: model Symbolic -> cmd Symbolic -> Logic
   , postcondition  :: model Concrete -> cmd Concrete -> resp Concrete -> Logic
   , invariant      :: Maybe (model Concrete -> Logic)

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE KindSignatures      #-}
@@ -41,7 +42,7 @@ import           Prelude                 hiding
 
 import           Test.StateMachine.Types
                    (Command(..), Commands(..), Concrete, History,
-                   Operation(..), StateMachine(..), Symbolic,
+                   Operation(..), StateMachine'(..), Symbolic,
                    makeOperations, unHistory)
 
 ------------------------------------------------------------------------
@@ -105,7 +106,7 @@ data Event model cmd resp (r :: Type -> Type) = Event
 
 -- | Step the model using a 'Command' (i.e., a command associated with an
 -- explicit set of variables).
-execCmd :: StateMachine model cmd m resp
+execCmd :: c Symbolic => StateMachine' c model cmd m resp
         -> model Symbolic -> Command cmd resp -> Event model cmd resp Symbolic
 execCmd StateMachine { transition } model (Command cmd resp _vars) =
   Event
@@ -116,7 +117,7 @@ execCmd StateMachine { transition } model (Command cmd resp _vars) =
     }
 
 -- | 'execCmds' is just the repeated form of 'execCmd'.
-execCmds :: forall model cmd m resp. StateMachine model cmd m resp
+execCmds :: forall c model cmd m resp. c Symbolic => StateMachine' c model cmd m resp
          -> Commands cmd resp -> [Event model cmd resp Symbolic]
 execCmds sm@StateMachine { initModel } = go initModel . unCommands
   where
@@ -124,7 +125,7 @@ execCmds sm@StateMachine { initModel } = go initModel . unCommands
     go _ []       = []
     go m (c : cs) = let ev = execCmd sm m c in ev : go (eventAfter ev) cs
 
-execOp :: StateMachine model cmd m resp -> model Concrete -> Operation cmd resp
+execOp :: c Concrete => StateMachine' c model cmd m resp -> model Concrete -> Operation cmd resp
        -> Maybe (Event model cmd resp Concrete)
 execOp _sm                        _model (Crash _cmd _err _pid)    = Nothing
 execOp StateMachine { transition } model (Operation cmd resp _pid) = Just $
@@ -135,7 +136,7 @@ execOp StateMachine { transition } model (Operation cmd resp _pid) = Just $
     , eventResp   = resp
     }
 
-execHistory :: forall model cmd m resp. StateMachine model cmd m resp
+execHistory :: forall c model cmd m resp. c Concrete => StateMachine' c model cmd m resp
             -> History cmd resp -> [Event model cmd resp Concrete]
 execHistory sm@StateMachine { initModel } = go initModel . makeOperations . unHistory
   where

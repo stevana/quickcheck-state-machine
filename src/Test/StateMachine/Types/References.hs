@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 
 -----------------------------------------------------------------------------
@@ -24,6 +25,8 @@
 module Test.StateMachine.Types.References
   ( Var(Var)
   , Symbolic(Symbolic)
+  , SymbOrConcrete(..)
+  , SSymbOrConcrete(..)
   , Concrete(Concrete)
   , Reference(Reference)
   , reference
@@ -37,6 +40,7 @@ module Test.StateMachine.Types.References
 import           Data.Functor.Classes
                    (Eq1, Ord1, Show1, compare1, eq1, liftCompare,
                    liftEq, liftShowsPrec, showsPrec1)
+import           Data.Proxy
 import           Data.TreeDiff
                    (Expr(App), ToExpr, toExpr)
 import           Data.Typeable
@@ -147,3 +151,16 @@ instance Show (Opaque a) where
 
 instance ToExpr (Opaque a) where
   toExpr _ = App "Opaque" []
+
+class SymbOrConcrete r where
+  soc :: Proxy r -> SSymbOrConcrete r
+
+data SSymbOrConcrete r where
+  SSymbolic :: SSymbOrConcrete Symbolic
+  SConcrete :: SSymbOrConcrete Concrete
+
+instance SymbOrConcrete Symbolic where
+  soc _ = SSymbolic
+
+instance SymbOrConcrete Concrete where
+  soc _ = SConcrete

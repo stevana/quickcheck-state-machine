@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -122,7 +123,8 @@ import           Test.StateMachine.Utils
 forAllCommands :: Testable prop
                => (Show (cmd Symbolic), Show (resp Symbolic), Show (model Symbolic))
                => (Rank2.Traversable cmd, Rank2.Foldable resp)
-               => StateMachine model cmd m resp
+               => c Symbolic
+               => StateMachine' c model cmd m resp
                -> Maybe Int -- ^ Minimum number of commands.
                -> (Commands cmd resp -> prop)     -- ^ Predicate.
                -> Property
@@ -130,9 +132,10 @@ forAllCommands sm mminSize =
   forAllShrinkShow (generateCommands sm mminSize) (shrinkCommands sm) ppShow
 
 -- | Generate commands from a list of generators.
-existsCommands :: forall model cmd m resp prop. (Testable prop, Rank2.Foldable resp)
+existsCommands :: forall c model cmd m resp prop. (Testable prop, Rank2.Foldable resp)
                => (Show (model Symbolic), Show (cmd Symbolic), Show (resp Symbolic))
-               => StateMachine model cmd m resp
+               => c Symbolic
+               => StateMachine' c model cmd m resp
                -> [model Symbolic -> Gen (cmd Symbolic)]  -- ^ Generators.
                -> (Commands cmd resp -> prop)             -- ^ Predicate.
                -> Property
@@ -166,15 +169,17 @@ deadlockError model generated counterexamples = error $ concat
 
 generateCommands :: (Rank2.Foldable resp, Show (model Symbolic))
                  => (Show (cmd Symbolic), Show (resp Symbolic))
-                 => StateMachine model cmd m resp
+                 => c Symbolic
+                 => StateMachine' c model cmd m resp
                  -> Maybe Int -- ^ Minimum number of commands.
                  -> Gen (Commands cmd resp)
 generateCommands sm@StateMachine { initModel } mminSize =
   evalStateT (generateCommandsState sm newCounter mminSize) initModel
 
-generateCommandsState :: forall model cmd m resp. Rank2.Foldable resp
+generateCommandsState :: forall c model cmd m resp. Rank2.Foldable resp
                       => (Show (model Symbolic), Show (cmd Symbolic), Show (resp Symbolic))
-                      => StateMachine model cmd m resp
+                      => c Symbolic
+                      => StateMachine' c model cmd m resp
                       -> Counter
                       -> Maybe Int -- ^ Minimum number of commands.
                       -> StateT (model Symbolic) Gen (Commands cmd resp)
@@ -203,8 +208,9 @@ getUsedVars :: Rank2.Foldable f => f Symbolic -> [Var]
 getUsedVars = Rank2.foldMap (\(Symbolic v) -> [v])
 
 -- | Shrink commands in a pre-condition and scope respecting way.
-shrinkCommands ::  forall model cmd m resp. (Rank2.Traversable cmd, Rank2.Foldable resp)
-               => StateMachine model cmd m resp -> Commands cmd resp
+shrinkCommands ::  forall c model cmd m resp. (Rank2.Traversable cmd, Rank2.Foldable resp)
+               => c Symbolic
+               => StateMachine' c model cmd m resp -> Commands cmd resp
                -> [Commands cmd resp]
 shrinkCommands sm@StateMachine { initModel } =
     concatMap go . shrinkListS' . unCommands
@@ -280,8 +286,9 @@ data ShouldShrink = MustShrink | DontShrink
 -- If we _did_ already shrink something, then no commands will be shrunk, and
 -- the resulting list will either be empty (if the list of commands was invalid)
 -- or contain a /single/ element with the validated and renumbered commands.
-shrinkAndValidate :: forall model cmd m resp. (Rank2.Traversable cmd, Rank2.Foldable resp)
-                  => StateMachine model cmd m resp
+shrinkAndValidate :: forall c model cmd m resp. (Rank2.Traversable cmd, Rank2.Foldable resp)
+                  => c Symbolic
+                  => StateMachine' c model cmd m resp
                   -> ShouldShrink
                   -> ValidateEnv model
                   -> Commands cmd resp
@@ -322,7 +329,8 @@ shrinkAndValidate StateMachine { precondition, transition, mock, shrinker } =
 runCommands :: (Show (cmd Concrete), Show (resp Concrete))
             => (Rank2.Traversable cmd, Rank2.Foldable resp)
             => (MonadMask m, MonadIO m)
-            => StateMachine model cmd m resp
+            => (c Concrete, c Symbolic)
+            => StateMachine' c model cmd m resp
             -> Commands cmd resp
             -> PropertyM m (History cmd resp, model Concrete, Reason)
 runCommands sm cmds = run $ runCommands' sm cmds
@@ -330,7 +338,8 @@ runCommands sm cmds = run $ runCommands' sm cmds
 runCommands' :: (Show (cmd Concrete), Show (resp Concrete))
              => (Rank2.Traversable cmd, Rank2.Foldable resp)
              => (MonadMask m, MonadIO m)
-             => StateMachine model cmd m resp
+             => (c Concrete, c Symbolic)
+             => StateMachine' c model cmd m resp
              -> Commands cmd resp
              -> m (History cmd resp, model Concrete, Reason)
 runCommands' sm@StateMachine { initModel, cleanup } cmds =
@@ -367,7 +376,8 @@ data Check
 executeCommands :: (Show (cmd Concrete), Show (resp Concrete))
                 => (Rank2.Traversable cmd, Rank2.Foldable resp)
                 => (MonadCatch m, MonadIO m)
-                => StateMachine model cmd m resp
+                => (c Symbolic, c Concrete)
+                => StateMachine' c model cmd m resp
                 -> TChan (Pid, HistoryEvent cmd resp)
                 -> Pid
                 -> Check
@@ -454,9 +464,10 @@ getUsedConcrete = Rank2.foldMap (\(Concrete x) -> [toDyn x])
 modelDiff :: ToExpr (model r) => model r -> Maybe (model r) -> Doc
 modelDiff model = ansiWlBgEditExprCompact . flip ediff model . fromMaybe model
 
-prettyPrintHistory :: forall model cmd m resp. ToExpr (model Concrete)
+prettyPrintHistory :: forall c model cmd m resp. ToExpr (model Concrete)
                    => (Show (cmd Concrete), Show (resp Concrete))
-                   => StateMachine model cmd m resp
+                   => c Concrete
+                   => StateMachine' c model cmd m resp
                    -> History cmd resp
                    -> IO ()
 prettyPrintHistory StateMachine { initModel, transition }
@@ -501,15 +512,17 @@ prettyPrintHistory StateMachine { initModel, transition }
 
 prettyCommands :: (MonadIO m, ToExpr (model Concrete))
                => (Show (cmd Concrete), Show (resp Concrete))
-               => StateMachine model cmd m resp
+               => c Concrete
+               => StateMachine' c model cmd m resp
                -> History cmd resp
                -> Property
                -> PropertyM m ()
 prettyCommands sm hist prop = prettyPrintHistory sm hist `whenFailM` prop
 
-prettyPrintHistory' :: forall model cmd m resp tag. ToExpr (model Concrete)
+prettyPrintHistory' :: forall c model cmd m resp tag. ToExpr (model Concrete)
                     => (Show (cmd Concrete), Show (resp Concrete), ToExpr tag)
-                    => StateMachine model cmd m resp
+                    => (c Symbolic, c Concrete)
+                    => StateMachine' c model cmd m resp
                     -> ([Event model cmd resp Symbolic] -> [tag])
                     -> Commands cmd resp
                     -> History cmd resp
@@ -568,7 +581,8 @@ prettyPrintHistory' sm@StateMachine { initModel, transition } tag cmds
 -- command.
 prettyCommands' :: (MonadIO m, ToExpr (model Concrete), ToExpr tag)
                 => (Show (cmd Concrete), Show (resp Concrete))
-                => StateMachine model cmd m resp
+                => (c Symbolic, c Concrete)
+                => StateMachine' c model cmd m resp
                 -> ([Event model cmd resp Symbolic] -> [tag])
                 -> Commands cmd resp
                 -> History cmd resp
@@ -594,7 +608,8 @@ runSavedCommands :: (Show (cmd Concrete), Show (resp Concrete))
                  => (Rank2.Traversable cmd, Rank2.Foldable resp)
                  => (MonadMask m, MonadIO m)
                  => (Read (cmd Symbolic), Read (resp Symbolic))
-                 => StateMachine model cmd m resp
+                 => (c Symbolic, c Concrete)
+                 => StateMachine' c model cmd m resp
                  -> FilePath
                  -> PropertyM m (Commands cmd resp, History cmd resp, model Concrete, Reason)
 runSavedCommands sm fp = do
@@ -640,7 +655,8 @@ commandNamesInOrder = reverse . foldl go [] . unCommands
 showLabelledExamples' :: (Show tag, Show (model Symbolic))
                       => (Show (cmd Symbolic), Show (resp Symbolic))
                       => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                      => StateMachine model cmd m resp
+                      => c Symbolic
+                      => StateMachine' c model cmd m resp
                       -> Maybe Int
                       -- ^ Seed
                       -> Int
@@ -668,7 +684,8 @@ showLabelledExamples' sm mReplay numTests tag focus = do
 showLabelledExamples :: (Show tag, Show (model Symbolic))
                      => (Show (cmd Symbolic), Show (resp Symbolic))
                      => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                     => StateMachine model cmd m resp
+                     => c Symbolic
+                     => StateMachine' c model cmd m resp
                      -> ([Event model cmd resp Symbolic] -> [tag])
                      -> IO ()
 showLabelledExamples sm tag = showLabelledExamples' sm Nothing 1000 tag (const True)

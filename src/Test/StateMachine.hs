@@ -50,7 +50,8 @@ module Test.StateMachine
   , commandNamesParallel
 
     -- * Types
-  , StateMachine(StateMachine)
+  , StateMachine'(StateMachine)
+  , StateMachine
   , Concrete
   , Symbolic
   , Reference

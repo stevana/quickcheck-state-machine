@@ -38,8 +38,6 @@ import           Data.Bitraversable
 import           Data.Functor.Classes
 import           Data.Kind
                    (Type)
-import           Data.List                     hiding
-                   (insert)
 import           Data.Maybe
                    (fromMaybe)
 import           Data.Pool
@@ -287,7 +285,7 @@ smUnused :: StateMachine Model (At Cmd) IO (At Resp)
 smUnused = sm undefined undefined undefined
 
 generatorImpl :: Model Symbolic -> Maybe (Gen (At Cmd Symbolic))
-generatorImpl Model {..} = Just $ At <$>
+generatorImpl _model = Just $ At <$>
     frequency [ (3, Insert <$> arbitrary)
               , (3, SelectList <$> arbitrary)
               ]

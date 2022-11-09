@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE RecordWildCards     #-}
@@ -94,7 +95,7 @@ import           Test.StateMachine.Logic
                    (boolean)
 import           Test.StateMachine.Types
                    (Command, Commands, Counter, History, Operation(..),
-                   StateMachine(..), getCommand, makeOperations,
+                   StateMachine'(..), getCommand, makeOperations,
                    newCounter, unCommands, unHistory)
 import           Test.StateMachine.Types.GenSym
                    (runGenSym)
@@ -202,9 +203,10 @@ toTransitionString :: (Show state, Show cmd_) => cmd_ -> state -> String
 toTransitionString cmd to = "-< " ++ show cmd ++ " >- " ++ show to
 
 -- | Variant of QuickCheck's 'tabulate' which works for 'Markov' chains.
-tabulateMarkov :: forall model state cmd cmd_ m resp prop. Testable prop
+tabulateMarkov :: forall c model state cmd cmd_ m resp prop. Testable prop
                => (Show state, Show cmd_)
-               => StateMachine model cmd m resp
+               => c Symbolic
+               => StateMachine' c model cmd m resp
                -> (model Symbolic -> state)
                -> (cmd Symbolic -> cmd_)
                -> Commands cmd resp
@@ -221,7 +223,7 @@ tabulateMarkov sm partition constructor cmds0 =
         go (from, Transition {..}) ih =
           tabulate (show from) [ toTransitionString command to ] ih
 
-    commandsToTransitions :: StateMachine model cmd m resp
+    commandsToTransitions :: StateMachine' c model cmd m resp
                           -> Commands cmd resp
                           -> [(state, Transition state cmd_ ())]
     commandsToTransitions StateMachine { initModel, transition, mock } =
@@ -324,10 +326,11 @@ stimulusMatrix markov = enumMatrix' go
 
 ------------------------------------------------------------------------
 
-historyObservations :: forall model cmd m resp state cmd_ prob. Ord state
+historyObservations :: forall c model cmd m resp state cmd_ prob. Ord state
                     => Ord cmd_
                     => (Generic state, GEnum FiniteEnum (Rep state), GBounded (Rep state))
-                    => StateMachine model cmd m resp
+                    => c Concrete
+                    => StateMachine' c model cmd m resp
                     -> Markov state cmd_ prob
                     -> (model Concrete -> state)
                     -> (cmd Concrete -> cmd_)

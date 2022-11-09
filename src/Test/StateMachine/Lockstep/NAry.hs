@@ -375,7 +375,7 @@ precondition (Model _ (Refss hs)) (At c) =
     sameRef (QSM.Reference (QSM.Symbolic v)) (QSM.Reference (QSM.Symbolic v')) = v == v'
 
 toStateMachine :: StateMachineTest t m
-               -> StateMachine (Model t) (At (Cmd t)) m (At (Resp t))
+               -> StateMachine' Top (Model t) (At (Cmd t)) m (At (Resp t))
 toStateMachine sm@StateMachineTest{} = StateMachine {
       initModel     = initModel     sm
     , transition    = transition    sm
