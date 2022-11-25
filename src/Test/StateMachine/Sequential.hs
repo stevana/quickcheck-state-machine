@@ -35,6 +35,7 @@ module Test.StateMachine.Sequential
   , ShouldShrink(..)
   , initValidateEnv
   , runCommands
+  , runCommandsWithSetup
   , runCommands'
   , getChanContents
   , Check(..)
@@ -59,7 +60,7 @@ import           Control.Exception
                    fromException)
 import           Control.Monad (when)
 import           Control.Monad.Catch
-                   (MonadCatch, MonadMask, catch, mask, onException)
+                   (MonadCatch(..), MonadMask (..), catch, ExitCase (..))
 import           Control.Monad.State.Strict
                    (StateT, evalStateT, get, lift, put, runStateT)
 import           Data.Bifunctor
@@ -325,28 +326,36 @@ runCommands :: (Show (cmd Concrete), Show (resp Concrete))
             => StateMachine model cmd m resp
             -> Commands cmd resp
             -> PropertyM m (History cmd resp, model Concrete, Reason)
-runCommands sm cmds = run $ runCommands' sm cmds
+runCommands sm = runCommandsWithSetup (pure sm)
+
+runCommandsWithSetup :: (Show (cmd Concrete), Show (resp Concrete))
+                     => (Rank2.Traversable cmd, Rank2.Foldable resp)
+                     => (MonadMask m, MonadIO m)
+                     => m (StateMachine model cmd m resp)
+                     -> Commands cmd resp
+                     -> PropertyM m (History cmd resp, model Concrete, Reason)
+runCommandsWithSetup msm cmds = run $ runCommands' msm cmds
 
 runCommands' :: (Show (cmd Concrete), Show (resp Concrete))
              => (Rank2.Traversable cmd, Rank2.Foldable resp)
              => (MonadMask m, MonadIO m)
-             => StateMachine model cmd m resp
+             => m (StateMachine model cmd m resp)
              -> Commands cmd resp
              -> m (History cmd resp, model Concrete, Reason)
-runCommands' sm@StateMachine { initModel, cleanup } cmds =
-    mask $ \restore -> do
-      hchan <- restore newTChanIO
-      (reason, (_, _, _, model)) <- restore
-        (runStateT
-          (executeCommands sm hchan (Pid 0) CheckEverything cmds)
-          (emptyEnvironment, initModel, newCounter, initModel))
-          `onException` (getChanContents hchan >>= cleanup . mkModel sm . History)
-      -- if sequential execution ends normally, we have the correct and
-      -- deterministic final model ready, so no need to use history for cleanup.
-      cleanup model
-      -- we have cleaned up, so we can restore noe
-      hist <- restore $ getChanContents hchan
-      return (History hist, model, reason)
+runCommands' msm cmds = do
+  hchan <- newTChanIO
+  (reason, (_, _, _, model)) <-
+    fst <$> generalBracket
+              msm
+              (\sm' ec -> case ec of
+                            ExitCaseSuccess (_, (_,_,_,model)) -> cleanup sm' model
+                            _ -> getChanContents hchan >>= cleanup sm' . mkModel sm' . History
+              )
+              (\sm'@StateMachine{ initModel } -> runStateT
+                       (executeCommands sm' hchan (Pid 0) CheckEverything cmds)
+                       (emptyEnvironment, initModel, newCounter, initModel))
+  hist <- getChanContents hchan
+  return (History hist, model, reason)
 
 -- We should try our best to not let this function fail,
 -- since it is used to cleanup resources, in parallel programs.

@@ -44,7 +44,7 @@ import           Data.Maybe
                    (fromMaybe)
 import           Data.Pool
 import           Data.Text
-                   (Text)
+                   (Text, pack)
 import           Data.TreeDiff.Expr
 import           Database.Persist
 import           Database.Persist.Sqlite
@@ -269,8 +269,16 @@ transitionImpl model cmd =  eventAfter . lockstep model cmd
 deriving anyclass instance ToExpr DBModel
 deriving anyclass instance ToExpr (Model Concrete)
 
-sm :: MonadIO m => String -> AsyncWithPool SqlBackend -> MVar () -> StateMachine Model (At Cmd) m (At Resp)
-sm folder poolBackend lock = StateMachine {
+sm :: MonadUnliftIO m => String -> m (StateMachine Model (At Cmd) m (At Resp))
+sm folder = do
+  liftIO $ removePathForcibly folder
+  liftIO $ createDirectory folder
+  poolBackend <- runNoLoggingT $ createSqliteAsyncPool (pack folder <> "/persons.db") 5
+  _ <- flip runSqlAsyncWrite poolBackend $ do
+    _ <- runMigrationQuiet $ migrate entityDefs $ entityDef (Nothing :: Maybe Person)
+    runMigrationQuiet $ migrate entityDefs $ entityDef (Nothing :: Maybe Car)
+  lock <- liftIO $ newMVar ()
+  pure $ StateMachine {
      initModel     = initModelImpl
    , transition    = transitionImpl
    , precondition  = preconditionImpl
@@ -280,11 +288,27 @@ sm folder poolBackend lock = StateMachine {
    , shrinker      = shrinkerImpl
    , semantics     = semanticsImpl poolBackend lock
    , mock          = mockImpl
-   , cleanup       = clean folder
+   , cleanup       = \model -> do
+       liftIO $ closeSqlAsyncPool poolBackend
+       clean folder model
    }
 
 smUnused :: StateMachine Model (At Cmd) IO (At Resp)
-smUnused = sm undefined undefined undefined
+smUnused =
+  StateMachine {
+     initModel     = initModelImpl
+   , transition    = transitionImpl
+   , precondition  = preconditionImpl
+   , postcondition = postconditionImpl
+   , invariant     = Nothing
+   , generator     = generatorImpl
+   , shrinker      = shrinkerImpl
+   , semantics     = e
+   , mock          = mockImpl
+   , cleanup       = e
+   }
+ where
+   e = error "SUT must not be used"
 
 generatorImpl :: Model Symbolic -> Maybe (Gen (At Cmd Symbolic))
 generatorImpl Model {..} = Just $ At <$>
@@ -319,31 +343,14 @@ clean folder _ = liftIO $ removePathForcibly folder
 prop_sequential_sqlite :: Property
 prop_sequential_sqlite =
     forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-        liftIO $ do
-            removePathForcibly "sqlite-seq"
-            createDirectory "sqlite-seq"
-        db <- liftIO $ runNoLoggingT $ createSqliteAsyncPool "sqlite-seq/persons.db" 5
-        _ <- liftIO $ flip runSqlAsyncWrite db $ do
-            _ <- runMigrationQuiet $ migrate entityDefs $ entityDef (Nothing :: Maybe Person)
-            runMigrationQuiet $ migrate entityDefs $ entityDef (Nothing :: Maybe Car)
-        lock <- liftIO $ newMVar ()
-        (hist, _model, res) <- runCommands (sm "sqlite-seq" db lock)  cmds
+        (hist, _model, res) <- runCommandsWithSetup (sm "sqlite-seq")  cmds
         prettyCommands smUnused hist $ res === Ok
 
 prop_parallel_sqlite :: Property
 prop_parallel_sqlite =
     forAllParallelCommands smUnused Nothing $ \cmds -> monadicIO $ do
-        liftIO $ do
-            removePathForcibly "sqlite-par"
-            createDirectory "sqlite-par"
-        qBackend <- liftIO $ runNoLoggingT $ createSqliteAsyncPool "sqlite-par/persons.db" 5
-        _ <- liftIO $ flip runSqlAsyncWrite qBackend $ do
-            _ <- runMigrationQuiet $ migrate entityDefs $ entityDef (Nothing :: Maybe Person)
-            runMigrationQuiet $ migrate entityDefs $ entityDef (Nothing :: Maybe Car)
-        lock <- liftIO $ newMVar ()
-        ret <- runParallelCommandsNTimes 1 (sm "sqlite-par" qBackend lock) cmds
+        ret <- runParallelCommandsNTimesWithSetup 1 (sm "sqlite-par") cmds
         prettyParallelCommandsWithOpts cmds (Just $ GraphOptions "sqlite.jpeg" Jpeg) ret
-        liftIO $ closeSqlAsyncPool qBackend
 
 instance Bifoldable t => Rank2.Foldable (At t) where
   foldMap = \f (At x) -> bifoldMap (app f) (app f) x

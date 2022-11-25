@@ -19,8 +19,6 @@ module Mock
     where
 
 import           Control.Concurrent
-import           Control.Monad.IO.Class
-                   (liftIO)
 import           GHC.Generics
                    (Generic, Generic1)
 import           Prelude
@@ -96,29 +94,31 @@ generator _            = Just $ frequency
 shrinker :: Model Symbolic -> Command Symbolic -> [Command Symbolic]
 shrinker _ _ = []
 
-sm :: MVar Int ->  StateMachine Model Command IO Response
-sm counter = StateMachine initModel transition precondition postcondition
+sm :: IO (StateMachine Model Command IO Response)
+sm = do
+  counter <- newMVar 0
+  pure $ StateMachine initModel transition precondition postcondition
         Nothing generator shrinker (semantics counter) mock noCleanup
 
 smUnused :: StateMachine Model Command IO Response
-smUnused = sm undefined
+smUnused = StateMachine initModel transition precondition postcondition
+        Nothing generator shrinker e mock noCleanup
+  where
+    e = error "SUT must not be used"
 
 prop_sequential_mock :: Property
 prop_sequential_mock = forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-  counter <- liftIO $ newMVar 0
-  (hist, _model, res) <- runCommands (sm counter) cmds
+  (hist, _model, res) <- runCommandsWithSetup sm cmds
   prettyCommands smUnused hist (res === Ok)
 
 prop_parallel_mock :: Property
 prop_parallel_mock = forAllParallelCommands smUnused Nothing $ \cmds -> monadicIO $ do
-    counter <- liftIO $ newMVar 0
-    ret <- runParallelCommandsNTimes 1 (sm counter) cmds
+    ret <- runParallelCommandsWithSetup sm cmds
     prettyParallelCommandsWithOpts cmds opts ret
       where opts = Just $ GraphOptions "mock-test-output.png" Png
 
 prop_nparallel_mock :: Property
 prop_nparallel_mock = forAllNParallelCommands smUnused 3 $ \cmds -> monadicIO $ do
-    counter <- liftIO $ newMVar 0
-    ret <- runNParallelCommandsNTimes 1 (sm counter) cmds
+    ret <- runNParallelCommandsWithSetup sm cmds
     prettyNParallelCommandsWithOpts cmds opts ret
       where opts = Just $ GraphOptions "mock-np-test-output.png" Png

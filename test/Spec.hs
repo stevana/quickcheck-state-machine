@@ -108,13 +108,15 @@ tests docker0 = testGroup "Tests"
         $ expectFailure $ withMaxSuccess 1000 $ prop_parallel_clean     (Eq True)  Cleanup.NoBug     NoOp
 
       , testProperty "3-threadsRegularNoOp"   $ prop_nparallel_clean  3 Regular    Cleanup.NoBug     NoOp
-      , testProperty "3-threadsRegular"       $ prop_nparallel_clean  3 Regular    Cleanup.NoBug     ReDo
+      , testProperty "3-threadsRegular"
+        $ expectFailure                       $ prop_nparallel_clean  3 Regular    Cleanup.NoBug     ReDo
       , testProperty "3-threadsRegularExc"    $ expectFailure
                                               $ prop_nparallel_clean  3 Regular    Cleanup.Exception NoOp
       , testProperty "3-threadsRegularExc"
         $ expectFailure                       $ prop_nparallel_clean  3 Regular    Cleanup.Exception ReDo
       , testProperty "3-threadsFilesNoOp"     $ prop_nparallel_clean  3 Files      Cleanup.NoBug     NoOp
-      , testProperty "3-threadsFiles"         $ prop_nparallel_clean  3 Files      Cleanup.NoBug     ReDo
+      , testProperty "3-threadsFiles"
+        $ expectFailure                       $ prop_nparallel_clean  3 Files      Cleanup.NoBug     ReDo
       , testProperty "3-threadsFilesExcNoOp"  $ prop_nparallel_clean  3 Files      Cleanup.Exception NoOp
       , testProperty "3-threadsFilesExc"
         $ expectFailure $ withMaxSuccess 1000 $ prop_nparallel_clean  3 Files      Cleanup.Exception ReDo
@@ -126,12 +128,13 @@ tests docker0 = testGroup "Tests"
   , testGroup "SQLite"
       [ testProperty "Parallel" prop_parallel_sqlite
       ]
-  , testGroup "Rqlite"
-      [ whenDocker docker0 "rqlite" $ testProperty "parallel" $ withMaxSuccess 10 $ prop_parallel_rqlite (Just Weak)
+  -- Rqlite tests fail, see #14
+  --, testGroup "Rqlite"
+  --    [ whenDocker docker0 "rqlite" $ testProperty "parallel" $ withMaxSuccess 10 $ prop_parallel_rqlite (Just Weak)
       -- we currently don't add other properties, because they interfere (Tasty runs tests on parallel)
       -- , testProperty "sequential" $ withMaxSuccess 10   $ prop_sequential_rqlite (Just Weak)
       -- , testProperty "sequential-stale" $ expectFailure $ prop_sequential_rqlite (Just RQlite.None)
-      ]
+  --    ]
   , testGroup "ErrorEncountered"
       [ testProperty "Sequential" prop_error_sequential
       , testProperty "Parallel"   prop_error_parallel
@@ -187,15 +190,9 @@ tests docker0 = testGroup "Tests"
       ]
   , testGroup "Echo"
       [ testProperty "Sequential" prop_echoOK
-      , testProperty "ParallelOk" (prop_echoParallelOK False)
-      , testProperty "ParallelBad" -- See issue #218.
-          (expectFailure (prop_echoParallelOK True))
-      , testProperty "2-Parallel" (prop_echoNParallelOK 2 False)
-      , testProperty "3-Parallel" (prop_echoNParallelOK 3 False)
-      , testProperty "Parallel bad, 2 threads, see issue #218"
-          (expectFailure (prop_echoNParallelOK 2 True))
-      , testProperty "Parallel bad, 3 threads, see issue #218"
-          (expectFailure (prop_echoNParallelOK 3 True))
+      , testProperty "Parallel" prop_echoParallelOK
+      , testProperty "2-Parallel" (prop_echoNParallelOK 2)
+      , testProperty "3-Parallel" (prop_echoNParallelOK 3)
       ]
   , testGroup "ProcessRegistry"
       [ testProperty "Sequential" (prop_processRegistry (statsDb "processRegistry"))

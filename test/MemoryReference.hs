@@ -223,7 +223,7 @@ prop_parallel bug = forAllParallelCommands sm' Nothing $
 
 prop_parallel' :: Bug -> Property
 prop_parallel' bug = forAllParallelCommands sm' Nothing $ \cmds -> monadicIO $ do
-  prettyParallelCommands cmds =<< runParallelCommands' sm' complete cmds
+  prettyParallelCommands cmds =<< runParallelCommands' (pure sm') complete cmds
     where
       sm' = sm bug
       complete :: Command Concrete -> Response Concrete

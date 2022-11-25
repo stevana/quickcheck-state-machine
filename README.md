@@ -374,10 +374,12 @@ follows:
          times with the part of the generated list that doesn't belong to the
          prefix.
 
-  2. execute the prefix sequentially as in the section above (checking pre- and
+  2. initialize the state machine if necessary (see [this](#sut-initialization));
+
+  3. execute the prefix sequentially as in the section above (checking pre- and
      post-conditions);
 
-  3. execute the suffixes in parallel without checking pre/post-conditions
+  4. execute the suffixes in parallel without checking pre/post-conditions
      and gather the trace (or history) of invocations and responses of each
      action;
 
@@ -401,24 +403,24 @@ Commands: [A, B] ─┤        ├──┤        │     ├─ executed `conc
                 executed sequentially
 ```
 
-  4. if something goes wrong when executing the commands, shrink the generated
+  5. if something goes wrong when executing the commands, shrink the generated
      commands and present a minimal counterexample;
 
-  5. otherwise, try to find a possible sequential interleaving of action
+  6. otherwise, try to find a possible sequential interleaving of action
      invocations and responses that respects the post-conditions. For each
      interleaving, this is done by advancing the `Concrete` model (starting at
      `initialModel`) through the sequence of pairs of invocations to `command
      Concrete` and the returned `response Concrete` emitted at step 3, and
      checking the post-condition for each pair.
 
-  6. if no possible sequential interleaving was found, then shrink the generated
+  7. if no possible sequential interleaving was found, then shrink the generated
      commands and present a minimal counterexample.
 
 The last two steps basically try to find
 a [linearisation](https://en.wikipedia.org/wiki/Linearizability) of calls that
 could have happend on a single thread.
 
-Notice that step 5 above introduces a subtlety in the post-condition checks and
+Notice that step 6 above introduces a subtlety in the post-condition checks and
 transitions for the `model Concrete`. Despite the system under test running in a
 concurrent way, the model can still be designed to work sequentially as *it will
 not be run in parallel*, it will only be advanced in a sequential way when
@@ -427,10 +429,90 @@ be correct with respect to sequential execution before used in parallel testing.
 
 As we cannot control the actual scheduling of the tasks, each sequence of
 commands (already fixed in a concrete prefix and a concrete list of suffixes) is
-actually executed several times by default, i.e. steps 2 to 6 will be executed
+actually executed several times by default, i.e. steps 2 to 7 will be executed
 multiple times for the same test case expecting that the scheduling of events
 varies between runs. One can further increase entropy by introducing random
 `threadDelay`s in the semantic function.
+
+#### SUT initialization
+
+Some tests might require an environment that is used by the SUT to perform its
+actions, for example some mutable variable. In these cases, the environment
+should be isolated from other executions, and in parallel testing each sequence
+of commands is executed several times as noted in the previous paragraph. The
+way to ensure that the environment is not shared among those repetitions is by
+defining the state machine inside a monadic action and use the
+`runXCommandsXWithSetup` variants of the functions:
+
+``` haskell
+
+semantics :: Env -> Command Concrete -> m Response Concrete
+semantics = ...
+
+sm :: m (StateMachine Model Command m Response)
+sm = do
+  env <- initEnv {- initialize the environment -}
+  pure $ StateMachine {
+    ...
+    , QSM.semantics = semantics env
+  }
+
+smUnused :: StateMachine Model Command m Response
+smUnused = StateMachine {
+  ...
+  , QSM.semantics = error "SUT must not be used during command generation or shrinking"
+}
+
+prop = forAllParallelCommands smUnused Nothing $ \cmds -> monadicIO $
+  prettyParallelCommands cmds =<< runParallelCommandsWithSetup sm cmds
+```
+
+This will ensure that each execution of the testcase initializes the environment
+as a first step.
+
+Note however that when running **sequential properties**, each test case is only
+executed once, therefore these two are completely equivalent:
+
+``` haskell
+sm :: m (StateMachine Model Command m Response)
+sm = do
+  env <- initEnv {- initialize the environment -}
+  pure $ StateMachine {
+    ...
+    , QSM.semantics = semantics env
+  }
+
+smUnused :: StateMachine Model Command m Response
+smUnused = StateMachine {
+  ...
+  , QSM.semantics = error "SUT must not be used during command generation or shrinking"
+}
+
+prop = forAllCommands smUnused $ \cmds -> monadicIO $
+  (hist, _model, res) <- runCommandsWithSetup sm cmds
+  prettyCommands smUnused hist (checkCommandNames cmds (res === Ok))
+```
+
+versus
+
+``` haskell
+sm :: Env -> StateMachine Model Command m Response
+sm env = StateMachine {
+    ...
+    , QSM.semantics = semantics env
+  }
+
+smUnused :: StateMachine Model Command m Response
+smUnused = StateMachine {
+  ...
+  , QSM.semantics = error "SUT must not be used during command generation or shrinking"
+}
+
+prop = forAllCommands smUnused $ \cmds -> monadicIO $
+  env <- initEnv {- initialize the environment -}
+  (hist, _model, res) <- runCommands (sm env) cmds
+  prettyCommands smUnused hist (checkCommandNames cmds (res === Ok))
+```
 
 ### More examples
 
