@@ -19,6 +19,7 @@ module Test.StateMachine
     forAllCommands
   , existsCommands
   , runCommands
+  , runCommandsWithSetup
   , prettyCommands
   , prettyCommands'
   , checkCommandNames
@@ -35,12 +36,16 @@ module Test.StateMachine
   , forAllParallelCommands
   , forAllNParallelCommands
   , runNParallelCommands
+  , runNParallelCommandsWithSetup
   , runParallelCommands
+  , runParallelCommandsWithSetup
   , runParallelCommands'
   , runParallelCommandsNTimes
+  , runParallelCommandsNTimesWithSetup
   , runNParallelCommandsNTimes'
   , runParallelCommandsNTimes'
   , runNParallelCommandsNTimes
+  , runNParallelCommandsNTimesWithSetup
   , prettyNParallelCommands
   , prettyParallelCommands
   , prettyParallelCommandsWithOpts

@@ -640,57 +640,47 @@ mock (Model DBModel{..} _) (At cmd) = At <$> case cmd of
     UnPause {}    -> return unitResp
     Delay {}      -> return unitResp
 
-sm :: MVar Int -> Maybe Level -> StateMachine Model (At Cmd) IO (At Resp)
-sm counter lvl = StateMachine initModel transition precondition postcondition
+sm :: Maybe Level -> IO (StateMachine Model (At Cmd) IO (At Resp))
+sm lvl = do
+  createRQNetworks
+  removePathForcibly testPath
+  createDirectory testPath
+  threadDelay 10000
+  counter <- newMVar 0
+  pure $ StateMachine initModel transition precondition postcondition
     Nothing (generatorImpl lvl) shrinker (semantics counter) mock garbageCollect
+
+smUnused :: Maybe Level -> StateMachine Model (At Cmd) IO (At Resp)
+smUnused lvl = StateMachine initModel transition precondition postcondition
+    Nothing (generatorImpl lvl) shrinker e mock garbageCollect
+  where
+    e = error "SUT must not be used"
 
 prop_sequential_rqlite :: Maybe Level -> Property
 prop_sequential_rqlite lvl =
-    forAllCommands (sm undefined lvl) (Just 7) $ \cmds -> checkCommandNames cmds $ monadicIO $ do
-        liftIO $ do
-            createRQNetworks
-            removePathForcibly testPath
-            createDirectory testPath
-            threadDelay 10000
-        c <- liftIO $ newMVar 0
-        (hist, _, res) <- runCommands (sm c lvl) cmds
-        prettyCommands (sm undefined lvl) hist $ res === Ok
+    forAllCommands (smUnused lvl) (Just 7) $ \cmds -> checkCommandNames cmds $ monadicIO $ do
+        (hist, _, res) <- runCommandsWithSetup (sm lvl) cmds
+        prettyCommands (smUnused lvl) hist $ res === Ok
 
 prop_parallel_rqlite :: Maybe Level -> Property
 prop_parallel_rqlite lvl =
-    forAllParallelCommands (sm undefined lvl) (Just 7) $ \cmds -> checkCommandNamesParallel cmds $ monadicIO $ do
-        liftIO $ do
-            createRQNetworks
-            removePathForcibly testPath
-            createDirectory testPath
-            threadDelay 10000
-        c <- liftIO $ newMVar 0
+    forAllParallelCommands (smUnused lvl) (Just 7) $ \cmds -> checkCommandNamesParallel cmds $ monadicIO $
         prettyParallelCommandsWithOpts cmds (Just $ GraphOptions "rqlite-test-output.png" Png)
-                =<< runParallelCommandsNTimes 2 (sm c lvl) cmds
+                =<< runParallelCommandsNTimesWithSetup 2 (sm lvl) cmds
 
 prop_nparallel_rqlite :: Int -> Maybe Level -> Property
 prop_nparallel_rqlite np lvl =
-    forAllNParallelCommands (sm undefined lvl) np $ \cmds ->
-      monadicIO $ do
-        liftIO $ do
-            removePathForcibly testPath
-            createDirectory testPath
-            threadDelay 10000
-        c <- liftIO $ newMVar 0
+    forAllNParallelCommands (smUnused lvl) np $ \cmds -> monadicIO $ do
         prettyNParallelCommandsWithOpts cmds (Just $ GraphOptions "rqlite-test-output.png" Png)
-                =<< runNParallelCommandsNTimes 1 (sm c lvl) cmds
+                =<< runNParallelCommandsNTimesWithSetup 1 (sm lvl) cmds
 
 
 runCmds :: ParallelCommandsF [] (At Cmd) (At Resp) -> Property
 runCmds cmds = withMaxSuccess 1 $ noShrinking $ monadicIO $ do
-    liftIO $ do
-            removePathForcibly testPath
-            createDirectory testPath
-    c <- liftIO $ newMVar 0
-    ls <- runNParallelCommandsNTimes 1 (sm c $ Just Weak) cmds
+    ls <- runNParallelCommandsNTimesWithSetup 1 (sm $ Just Weak) cmds
     prettyNParallelCommandsWithOpts cmds (Just $ GraphOptions "rqlite-test-output.png" Png) ls
-    liftIO $ print $ fst $ head ls
-    liftIO $ print $ interleavings $ unHistory $ fst $ head ls
+    liftIO $ print $ (\(a, _, _) -> a) $ head ls
+    liftIO $ print $ interleavings $ unHistory $ (\(a, _, _) -> a) $ head ls
 
 garbageCollect :: Model Concrete -> IO ()
 garbageCollect (Model _ nodes) =

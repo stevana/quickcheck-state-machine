@@ -1,6 +1,9 @@
 #### 0.7.2 (???)
 
   * Fix compatibility with GHC 9.0 and 9.2 (PR #7, thanks @edsko).
+  
+  * Introduce new `runXCommandsXWithSetup` which allow for monadic
+    initialization of the state machine for each test case execution.
 
 #### 0.7.1 (2021-8-17)
 
