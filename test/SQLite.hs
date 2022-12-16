@@ -38,8 +38,6 @@ import           Data.Bitraversable
 import           Data.Functor.Classes
 import           Data.Kind
                    (Type)
-import           Data.List                     hiding
-                   (insert)
 import           Data.Maybe
                    (fromMaybe)
 import           Data.Pool
@@ -311,7 +309,7 @@ smUnused =
    e = error "SUT must not be used"
 
 generatorImpl :: Model Symbolic -> Maybe (Gen (At Cmd Symbolic))
-generatorImpl Model {..} = Just $ At <$>
+generatorImpl _model = Just $ At <$>
     frequency [ (3, Insert <$> arbitrary)
               , (3, SelectList <$> arbitrary)
               ]

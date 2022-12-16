@@ -49,14 +49,14 @@ import           Text.Show.Pretty
                    (ppShow)
 
 {-----------------------------------------------------------------------------------
-  This example in mainly used to check how well cleanup of recourses works. In our
-  case recourses are files created on the @testDirectory@ (not open handles, just
-  files). So it is easy, by the end of the tests to test if there any any recourses
+  This example in mainly used to check how well cleanup of resources works. In our
+  case resources are files created on the @testDirectory@ (not open handles, just
+  files). So it is easy, by the end of the tests to test if there any any resources
   which are not cleaned up, by the end of the tests.
 
   We also test different scenarios, like injected exceptions in semantics
-  (before and after the recourse is created). Tests also reveal what happens when
-  cleaning up a recourse for the second time is not a no-op.
+  (before and after the resource is created). Tests also reveal what happens when
+  cleaning up a resource for the second time is not a no-op.
 
 -----------------------------------------------------------------------------------}
 data Command r

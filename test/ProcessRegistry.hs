@@ -315,7 +315,7 @@ precondition Model {..} act = case act of
   Exit                 -> Top
 
 postcondition :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
-postcondition Model {..} act (Response (Left err))   = case act of
+postcondition _model act (Response (Left err))   = case act of
   BadRegister _name _pid -> Top
   BadUnregister _name    -> Top
   _                      -> Bot .// show err

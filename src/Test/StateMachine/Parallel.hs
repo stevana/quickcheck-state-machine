@@ -17,6 +17,29 @@
 -- This module contains helpers for generating, shrinking, and checking
 -- parallel programs.
 --
+-- Note that:
+--
+-- - the @.*NParallelCommands@ functions and the 'NParallelCommands' datatype
+--   are expected to be used when you want to run @N@ concurrent threads running
+--   at the same time and repeat each test 10 (by default) times to get
+--   sufficient randomness on the RTS scheduling of concurrent actions.
+--
+-- - the @.*ParallelCommandsNTimes@ functions and the 'ParallelCommands'
+--   datatype are expected to be used when you want to run the test with 2
+--   concurrent threads and repeat each test @N@ times to get sufficient
+--   randomness on the RTS scheduling of concurrent actions.
+--
+-- - the @.*NParallelCommandsNTime@ functions do both of the above points at the
+--   same time, in particular they take an 'NParallelCommands' value generated
+--   to be run by some number of threads concurrently, and they take as input
+--   how many times each test should be repeated.
+--
+-- - the @run.*WithSetup@ functions receive a monadic action that must
+--   initialize the StateMachine which will be used at the beginning of each
+--   repetition of each sequence of commands. See the section in the
+--   [README](https://github.com/stevana/quickcheck-state-machine#sut-initialization)
+--   for more context.
+--
 -----------------------------------------------------------------------------
 
 module Test.StateMachine.Parallel

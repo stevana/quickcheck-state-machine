@@ -34,7 +34,7 @@ import           Data.Aeson                         hiding
 import           Data.Foldable
 import           Data.Functor.Classes
 import           Data.Kind
-import           Data.List
+import qualified Data.List                          as L
 import           Data.Map
                    (Map)
 import qualified Data.Map                           as M
@@ -278,7 +278,7 @@ createRQNetworks = do
 ------------------------
 
 sameElements :: Eq a => [a] -> [a] -> Bool
-sameElements x y = null (x \\ y) && null (y \\ x)
+sameElements x y = null (x L.\\ y) && null (y L.\\ x)
 
 type NodeRef =  Reference Container
 
@@ -562,7 +562,7 @@ precondition (Model DBModel{..} nodes) (At cmd) = case cmd of
     Delay _    -> Top
 
 postcondition :: Model Concrete -> At Cmd Concrete -> At Resp Concrete -> Logic
-postcondition m@Model{..} cmd resp =
+postcondition m cmd resp =
     toMock (eventAfter ev) resp .== eventMockResp ev
     where
         ev = lockstep m cmd resp
@@ -721,7 +721,7 @@ joinNode :: Bool -> Map Int NodeState -> Maybe Int
 joinNode avoid0 ndState =
     case snd <$> getRunning ndState of
         [] -> Nothing
-        rs -> Just $ case (elem 0 rs, delete 0 rs, avoid0) of
+        rs -> Just $ case (elem 0 rs, L.delete 0 rs, avoid0) of
             (False, _, _)     -> head rs
             (True, _, False)  -> 0
             (True, rs', True) -> head rs'
