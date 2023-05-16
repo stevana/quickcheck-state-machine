@@ -119,6 +119,7 @@ import qualified Test.StateMachine.Types.Rank2     as Rank2
 import           Test.StateMachine.Utils
 
 ------------------------------------------------------------------------
+-- Generation
 
 forAllCommands :: Testable prop
                => (Show (cmd Symbolic), Show (resp Symbolic), Show (model Symbolic))
@@ -203,6 +204,9 @@ generateCommandsState StateMachine { precondition, generator, transition, mock }
 getUsedVars :: Rank2.Foldable f => f Symbolic -> [Var]
 getUsedVars = Rank2.foldMap (\(Symbolic v) -> [v])
 
+------------------------------------------------------------------------
+-- Shrinking
+
 -- | Shrink commands in a pre-condition and scope respecting way.
 shrinkCommands ::  forall model cmd m resp. (Rank2.Traversable cmd, Rank2.Foldable resp)
                => StateMachine model cmd m resp -> Commands cmd resp
@@ -244,8 +248,8 @@ data ValidateEnv model = ValidateEnv {
     }
 
 initValidateEnv :: model Symbolic -> ValidateEnv model
-initValidateEnv initModel = ValidateEnv {
-      veModel   = initModel
+initValidateEnv initialModel = ValidateEnv {
+      veModel   = initialModel
     , veScope   = M.empty
     , veCounter = newCounter
     }
@@ -320,42 +324,13 @@ shrinkAndValidate StateMachine { precondition, transition, mock, shrinker } =
     remapVars :: Map Var Var -> Symbolic a -> Maybe (Symbolic a)
     remapVars scope (Symbolic v) = Symbolic <$> M.lookup v scope
 
-runCommands :: (Show (cmd Concrete), Show (resp Concrete))
-            => (Rank2.Traversable cmd, Rank2.Foldable resp)
-            => (MonadMask m, MonadIO m)
-            => StateMachine model cmd m resp
-            -> Commands cmd resp
-            -> PropertyM m (History cmd resp, model Concrete, Reason)
-runCommands sm = runCommandsWithSetup (pure sm)
+-----------------------------------------------------------------------
+-- Running
 
-runCommandsWithSetup :: (Show (cmd Concrete), Show (resp Concrete))
-                     => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                     => (MonadMask m, MonadIO m)
-                     => m (StateMachine model cmd m resp)
-                     -> Commands cmd resp
-                     -> PropertyM m (History cmd resp, model Concrete, Reason)
-runCommandsWithSetup msm cmds = run $ runCommands' msm cmds
-
-runCommands' :: (Show (cmd Concrete), Show (resp Concrete))
-             => (Rank2.Traversable cmd, Rank2.Foldable resp)
-             => (MonadMask m, MonadIO m)
-             => m (StateMachine model cmd m resp)
-             -> Commands cmd resp
-             -> m (History cmd resp, model Concrete, Reason)
-runCommands' msm cmds = do
-  hchan <- newTChanIO
-  (reason, (_, _, _, model)) <-
-    fst <$> generalBracket
-              msm
-              (\sm' ec -> case ec of
-                            ExitCaseSuccess (_, (_,_,_,model)) -> cleanup sm' model
-                            _ -> getChanContents hchan >>= cleanup sm' . mkModel sm' . History
-              )
-              (\sm'@StateMachine{ initModel } -> runStateT
-                       (executeCommands sm' hchan (Pid 0) CheckEverything cmds)
-                       (emptyEnvironment, initModel, newCounter, initModel))
-  hist <- getChanContents hchan
-  return (History hist, model, reason)
+data Check
+  = CheckPrecondition
+  | CheckEverything
+  | CheckNothing
 
 -- We should try our best to not let this function fail,
 -- since it is used to cleanup resources, in parallel programs.
@@ -368,10 +343,46 @@ getChanContents chan = reverse <$> atomically (go' [])
         Just x  -> go' (x : acc)
         Nothing -> return acc
 
-data Check
-  = CheckPrecondition
-  | CheckEverything
-  | CheckNothing
+runCommands :: (Show (cmd Concrete), Show (resp Concrete))
+            => (Rank2.Traversable cmd, Rank2.Foldable resp)
+            => (MonadMask m, MonadIO m)
+            => StateMachine model cmd m resp
+            -> Commands cmd resp
+            -> PropertyM m (Maybe TraceOutput, History cmd resp, model Concrete, Reason)
+runCommands sm = runCommandsWithSetup (pure sm)
+
+runCommandsWithSetup :: (Show (cmd Concrete), Show (resp Concrete))
+                     => (Rank2.Traversable cmd, Rank2.Foldable resp)
+                     => (MonadMask m, MonadIO m)
+                     => m (StateMachine model cmd m resp)
+                     -> Commands cmd resp
+                     -> PropertyM m (Maybe TraceOutput, History cmd resp, model Concrete, Reason)
+runCommandsWithSetup msm cmds = run $ runCommands' msm cmds
+
+runCommands' :: (Show (cmd Concrete), Show (resp Concrete))
+             => (Rank2.Traversable cmd, Rank2.Foldable resp)
+             => (MonadMask m, MonadIO m)
+             => m (StateMachine model cmd m resp)
+             -> Commands cmd resp
+             -> m (Maybe TraceOutput, History cmd resp, model Concrete, Reason)
+runCommands' msm cmds = do
+  hchan <- newTChanIO
+  (output, (reason, (_, _, _, model))) <-
+    fst <$> generalBracket
+              msm
+              (\sm' ec -> case ec of
+                            ExitCaseSuccess (_, (_, (_,_,_,model))) -> cleanup sm' model
+                            _ -> getChanContents hchan >>= cleanup sm' . mkModel sm' . History
+              )
+              (\sm'@StateMachine{ initModel, getTraces } -> do
+                  st <- runStateT
+                        (executeCommands sm' hchan (Pid 0) CheckEverything cmds)
+                        (emptyEnvironment, initModel, newCounter, initModel)
+                  output <- maybe (pure Nothing) (Just <$>) getTraces
+                  pure (output, st)
+              )
+  hist <- getChanContents hchan
+  return (output, History hist, model, reason)
 
 executeCommands :: (Show (cmd Concrete), Show (resp Concrete))
                 => (Rank2.Traversable cmd, Rank2.Foldable resp)
@@ -460,24 +471,39 @@ executeCommands StateMachine {..} hchan pid check =
 getUsedConcrete :: Rank2.Foldable f => f Concrete -> [Dynamic]
 getUsedConcrete = Rank2.foldMap (\(Concrete x) -> [toDyn x])
 
+------------------------------------------------------------------------
+-- Printing
+
 modelDiff :: ToExpr (model r) => model r -> Maybe (model r) -> Doc
 modelDiff model = ansiWlBgEditExprCompact . flip ediff model . fromMaybe model
 
 prettyPrintHistory :: forall model cmd m resp. ToExpr (model Concrete)
                    => (Show (cmd Concrete), Show (resp Concrete))
                    => StateMachine model cmd m resp
+                   -> Maybe TraceOutput
                    -> History cmd resp
                    -> IO ()
-prettyPrintHistory StateMachine { initModel, transition }
-  = PP.putDoc
-  . go initModel Nothing
-  . makeOperations
-  . unHistory
+prettyPrintHistory StateMachine { initModel, transition } output history =
+    PP.putDoc (ppHistory <> maybe PP.empty ppOutput output)
   where
-    go :: model Concrete -> Maybe (model Concrete) -> [Operation cmd resp] -> Doc
-    go current previous [] =
-      PP.line <> modelDiff current previous <> PP.line <> PP.line
-    go current previous [Crash cmd err pid] =
+    ppHistory = ppOperations initModel Nothing
+              . makeOperations
+              . unHistory
+              $ history
+
+
+    ppOperations :: model Concrete -> Maybe (model Concrete) -> [Operation cmd resp] -> Doc
+    ppOperations current previous [] =
+       PP.line <> modelDiff current previous <> PP.line <> PP.line
+    ppOperations current previous (op : ops) =
+      case op of
+        Crash cmd err pid -> ppOperation current previous cmd err pid
+        Operation cmd resp pid ->
+             ppOperation current previous cmd (ppShow resp) pid
+          <> ppOperations (transition current cmd resp) (Just current) ops
+
+    ppOperation :: model Concrete -> Maybe (model Concrete) -> cmd Concrete -> String -> Pid -> Doc
+    ppOperation current previous cmd msg pid =
       mconcat
         [ PP.line
         , modelDiff current previous
@@ -485,66 +511,67 @@ prettyPrintHistory StateMachine { initModel, transition }
         , PP.string "   == "
         , PP.string (ppShow cmd)
         , PP.string " ==> "
-        , PP.string err
+        , PP.string msg
         , PP.string " [ "
         , PP.int (unPid pid)
         , PP.string " ]"
         , PP.line
         ]
-    go current previous (Operation cmd resp pid : ops) =
-      mconcat
-        [ PP.line
-        , modelDiff current previous
-        , PP.line, PP.line
-        , PP.string "   == "
-        , PP.string (ppShow cmd)
-        , PP.string " ==> "
-        , PP.string (ppShow resp)
-        , PP.string " [ "
-        , PP.int (unPid pid)
-        , PP.string " ]"
-        , PP.line
-        , go (transition current cmd resp) (Just current) ops
-        ]
-    go _ _ _ = error "prettyPrintHistory: impossible."
+
+    ppOutput out = mconcat
+               [ PP.string "The execution emitted the following trace messages:"
+               , PP.line
+               , PP.red $ PP.indent 2 $ PP.string $ unlines $ getOutput out
+               , PP.line
+               ]
 
 prettyCommands :: (MonadIO m, ToExpr (model Concrete))
                => (Show (cmd Concrete), Show (resp Concrete))
                => StateMachine model cmd m resp
+               -> Maybe TraceOutput
                -> History cmd resp
                -> Property
                -> PropertyM m ()
-prettyCommands sm hist prop = prettyPrintHistory sm hist `whenFailM` prop
+prettyCommands sm output hist prop = prettyPrintHistory sm output hist `whenFailM` prop
 
 prettyPrintHistory' :: forall model cmd m resp tag. ToExpr (model Concrete)
                     => (Show (cmd Concrete), Show (resp Concrete), ToExpr tag)
                     => StateMachine model cmd m resp
                     -> ([Event model cmd resp Symbolic] -> [tag])
                     -> Commands cmd resp
+                    -> Maybe TraceOutput
                     -> History cmd resp
                     -> IO ()
-prettyPrintHistory' sm@StateMachine { initModel, transition } tag cmds
-  = PP.putDoc
-  . go initModel Nothing [] (map tag (drop 1 (inits (execCmds sm cmds))))
-  . makeOperations
-  . unHistory
+prettyPrintHistory' sm@StateMachine { initModel, transition } tag cmds output history =
+    PP.putDoc (ppHistory <> maybe PP.empty ppOutput output)
   where
+    ppHistory = ppOperations initModel Nothing [] (map tag (drop 1 (inits (execCmds sm cmds))))
+              . makeOperations
+              . unHistory
+              $ history
+
     tagsDiff :: [tag] -> [tag] -> Doc
     tagsDiff old new = ansiWlBgEditExprCompact (ediff old new)
 
-    go :: model Concrete -> Maybe (model Concrete) -> [tag] -> [[tag]]
-       -> [Operation cmd resp] -> Doc
-    go current previous _seen _tags [] =
-      PP.line <> modelDiff current previous <> PP.line <> PP.line
-    go current previous seen (tags : _) [Crash cmd err pid] =
-      mconcat
+    ppOperations current previous _seen _tags [] =
+       PP.line <> modelDiff current previous <> PP.line <> PP.line
+    ppOperations current previous seen (tags : tagss) (op : ops) =
+      case op of
+        Crash cmd err pid -> ppOperation current previous seen tags cmd err pid
+        Operation cmd resp pid ->
+             ppOperation current previous seen tags cmd (ppShow resp) pid
+          <> ppOperations (transition current cmd resp) (Just current) tags tagss ops
+    ppOperations _ _ _ _ _ = error "impossible"
+
+    ppOperation current previous seen tags cmd resp pid =
+        mconcat
         [ PP.line
         , modelDiff current previous
         , PP.line, PP.line
         , PP.string "   == "
         , PP.string (ppShow cmd)
         , PP.string " ==> "
-        , PP.string err
+        , PP.string resp
         , PP.string " [ "
         , PP.int (unPid pid)
         , PP.string " ]"
@@ -553,25 +580,13 @@ prettyPrintHistory' sm@StateMachine { initModel, transition } tag cmds
           then PP.line <> PP.string "   " <> tagsDiff seen tags <> PP.line
           else PP.empty
         ]
-    go current previous seen (tags : tagss) (Operation cmd resp pid : ops) =
-      mconcat
-        [ PP.line
-        , modelDiff current previous
-        , PP.line, PP.line
-        , PP.string "   == "
-        , PP.string (ppShow cmd)
-        , PP.string " ==> "
-        , PP.string (ppShow resp)
-        , PP.string " [ "
-        , PP.int (unPid pid)
-        , PP.string " ]"
-        , PP.line
-        , if not (null tags)
-          then PP.line <> PP.string "   " <> tagsDiff seen tags <> PP.line
-          else PP.empty
-        , go (transition current cmd resp) (Just current) tags tagss ops
-        ]
-    go _ _ _ _ _ = error "prettyPrintHistory': impossible."
+
+    ppOutput out = mconcat
+               [ PP.string "The execution emitted the following trace messages:"
+               , PP.line
+               , PP.red $ PP.indent 2 $ PP.string $ unlines $ getOutput out
+               , PP.line
+               ]
 
 -- | Variant of 'prettyCommands' that also prints the @tag@s covered by each
 -- command.
@@ -580,11 +595,15 @@ prettyCommands' :: (MonadIO m, ToExpr (model Concrete), ToExpr tag)
                 => StateMachine model cmd m resp
                 -> ([Event model cmd resp Symbolic] -> [tag])
                 -> Commands cmd resp
+                -> Maybe TraceOutput
                 -> History cmd resp
                 -> Property
                 -> PropertyM m ()
-prettyCommands' sm tag cmds hist prop =
-  prettyPrintHistory' sm tag cmds hist `whenFailM` prop
+prettyCommands' sm tag cmds output hist prop =
+  prettyPrintHistory' sm tag cmds output hist `whenFailM` prop
+
+------------------------------------------------------------------------
+-- Saved commands
 
 saveCommands :: (Show (cmd Symbolic), Show (resp Symbolic))
              => FilePath -> Commands cmd resp -> Property -> Property
@@ -605,11 +624,11 @@ runSavedCommands :: (Show (cmd Concrete), Show (resp Concrete))
                  => (Read (cmd Symbolic), Read (resp Symbolic))
                  => StateMachine model cmd m resp
                  -> FilePath
-                 -> PropertyM m (Commands cmd resp, History cmd resp, model Concrete, Reason)
+                 -> PropertyM m (Commands cmd resp, Maybe TraceOutput, History cmd resp, model Concrete, Reason)
 runSavedCommands sm fp = do
   cmds <- read <$> liftIO (readFile fp)
-  (hist, model, res) <- runCommands sm cmds
-  return (cmds, hist, model, res)
+  (output, hist, model, res) <- runCommands sm cmds
+  return (cmds, output, hist, model, res)
 
 ------------------------------------------------------------------------
 

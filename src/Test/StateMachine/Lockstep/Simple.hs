@@ -50,6 +50,8 @@ import           Test.StateMachine.Lockstep.NAry
                    (MockState, Tag)
 
 import qualified Test.StateMachine.Lockstep.NAry      as NAry
+import           Test.StateMachine.Types
+                   (TraceOutput)
 
 {-------------------------------------------------------------------------------
   Top-level parameters
@@ -213,6 +215,7 @@ data StateMachineTest t =
     , shrinker   :: Model t Symbolic -> Cmd t :@ Symbolic -> [Cmd t :@ Symbolic]
     , cleanup    :: Model t Concrete -> IO ()
     , tag        :: [Event t Symbolic] -> [Tag t]
+    , getTraces  :: Maybe (IO TraceOutput)
     }
 
 data Simple t
@@ -275,13 +278,14 @@ instance ToExpr (MockHandle t)
 fromSimple :: StateMachineTest t -> NAry.StateMachineTest (Simple t) IO
 fromSimple StateMachineTest{..} = NAry.StateMachineTest {
       runMock    = \cmd st -> first respMockFromSimple (runMock (cmdMockToSimple cmd) st)
-    , runReal    = \cmd -> respRealFromSimple <$> (runReal (cmdRealToSimple cmd))
+    , runReal    = \cmd -> respRealFromSimple <$> runReal (cmdRealToSimple cmd)
     , initMock   = initMock
     , newHandles = \r -> Comp (newHandles (unSimpleResp r)) :* Nil
     , generator  = \m     -> fmap cmdAtFromSimple <$> generator (modelToSimple m)
     , shrinker   = \m cmd ->      cmdAtFromSimple <$> shrinker  (modelToSimple m) (cmdAtToSimple cmd)
     , cleanup    = cleanup   . modelToSimple
     , tag        = tag . map eventToSimple
+    , getTraces  = getTraces
     }
 
 {-------------------------------------------------------------------------------

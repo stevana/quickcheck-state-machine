@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveFoldable             #-}
-{-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -38,6 +36,8 @@ module Test.StateMachine.Types
   , Reason(..)
   , isOK
   , noCleanup
+  , Tracer (..)
+  , TraceOutput (..)
   , module Test.StateMachine.Types.Environment
   , module Test.StateMachine.Types.GenSym
   , module Test.StateMachine.Types.History
@@ -70,6 +70,7 @@ data StateMachine model cmd m resp = StateMachine
   , semantics      :: cmd Concrete -> m (resp Concrete)
   , mock           :: model Symbolic -> cmd Symbolic -> GenSym (resp Symbolic)
   , cleanup        :: model Concrete -> m ()
+  , getTraces      :: Maybe (m TraceOutput)
   }
 
 noCleanup :: Monad m => model Concrete -> m ()
@@ -166,3 +167,7 @@ toPairUnsafe' p = p { suffixes = unsafePair <$> suffixes p}
     where
       unsafePair [a,b] = Pair a b
       unsafePair _ = error "invariant violation! Shrunk list should always have 2 elements."
+
+newtype Tracer m = Tracer { traceWith :: String -> m () }
+
+newtype TraceOutput = TraceOutput { getOutput :: [String] }

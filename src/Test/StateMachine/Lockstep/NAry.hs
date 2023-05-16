@@ -251,6 +251,7 @@ data StateMachineTest t m =
     , shrinker   :: Model t Symbolic -> Cmd t :@ Symbolic -> [Cmd t :@ Symbolic]
     , cleanup    :: Model t Concrete -> m ()
     , tag        :: [Event t Symbolic] -> [Tag t]
+    , getTraces  :: Maybe (m QSM.TraceOutput)
     }
 
 hoistStateMachineTest :: Monad n
@@ -266,6 +267,7 @@ hoistStateMachineTest f StateMachineTest {..} = StateMachineTest {
     , shrinker   = shrinker
     , cleanup    = f . cleanup
     , tag        = tag
+    , getTraces  = f <$> getTraces
     }
 
 semantics :: StateMachineTest t m
@@ -387,6 +389,7 @@ toStateMachine sm@StateMachineTest{} = StateMachine {
     , mock          = symbolicResp  sm
     , cleanup       = cleanup       sm
     , invariant     = Nothing
+    , getTraces     = getTraces     sm
     }
 
 -- | Sequential test
@@ -397,8 +400,8 @@ prop_sequential :: forall t.
 prop_sequential sm@StateMachineTest{..} mMinSize =
     forAllCommands sm' mMinSize $ \cmds ->
       monadicIO $ do
-        (hist, _model, res) <- runCommands sm' cmds
-        prettyCommands sm' hist
+        (output, hist, _model, res) <- runCommands sm' cmds
+        prettyCommands sm' output hist
           $ tabulate "Tags" (map show $ tagCmds cmds)
           $ res === Ok
   where

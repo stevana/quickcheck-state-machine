@@ -67,6 +67,7 @@ module Test.StateMachine
   , GenSym
   , genSym
   , CommandNames(..)
+  , Tracer (..)
 
   , module Test.StateMachine.Logic
   , module Test.StateMachine.Markov
