@@ -649,18 +649,20 @@ sm lvl = do
   counter <- newMVar 0
   pure $ StateMachine initModel transition precondition postcondition
     Nothing (generatorImpl lvl) shrinker (semantics counter) mock garbageCollect
+    Nothing
 
 smUnused :: Maybe Level -> StateMachine Model (At Cmd) IO (At Resp)
 smUnused lvl = StateMachine initModel transition precondition postcondition
     Nothing (generatorImpl lvl) shrinker e mock garbageCollect
+    Nothing
   where
     e = error "SUT must not be used"
 
 prop_sequential_rqlite :: Maybe Level -> Property
 prop_sequential_rqlite lvl =
     forAllCommands (smUnused lvl) (Just 7) $ \cmds -> checkCommandNames cmds $ monadicIO $ do
-        (hist, _, res) <- runCommandsWithSetup (sm lvl) cmds
-        prettyCommands (smUnused lvl) hist $ res === Ok
+        (output, hist, _, res) <- runCommandsWithSetup (sm lvl) cmds
+        prettyCommands (smUnused lvl) output hist $ res === Ok
 
 prop_parallel_rqlite :: Maybe Level -> Property
 prop_parallel_rqlite lvl =
@@ -679,8 +681,8 @@ runCmds :: ParallelCommandsF [] (At Cmd) (At Resp) -> Property
 runCmds cmds = withMaxSuccess 1 $ noShrinking $ monadicIO $ do
     ls <- runNParallelCommandsNTimesWithSetup 1 (sm $ Just Weak) cmds
     prettyNParallelCommandsWithOpts cmds (Just $ GraphOptions "rqlite-test-output.png" Png) ls
-    liftIO $ print $ (\(a, _, _) -> a) $ head ls
-    liftIO $ print $ interleavings $ unHistory $ (\(a, _, _) -> a) $ head ls
+    liftIO $ print $ (\(_, a, _, _) -> a) $ head ls
+    liftIO $ print $ interleavings $ unHistory $ (\(_, a, _, _) -> a) $ head ls
 
 garbageCollect :: Model Concrete -> IO ()
 garbageCollect (Model _ nodes) =

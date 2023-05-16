@@ -36,7 +36,7 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
                    (monadicIO)
 import           UnliftIO
-                   (TVar, atomically, liftIO, newTVarIO, readTVar,
+                   (TVar, atomically, newTVarIO, readTVar,
                    writeTVar)
 
 import           Test.StateMachine
@@ -76,8 +76,8 @@ output (Env mBuf) = atomically $ do
 
 prop_echoOK :: Property
 prop_echoOK = forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-    (hist, _, res) <- runCommandsWithSetup echoSM cmds
-    prettyCommands smUnused hist (res === Ok)
+    (out, hist, _, res) <- runCommandsWithSetup echoSM cmds
+    prettyCommands smUnused out hist (res === Ok)
 
 prop_echoParallelOK :: Property
 prop_echoParallelOK = forAllParallelCommands smUnused Nothing $ \cmds -> monadicIO $ do
@@ -99,6 +99,7 @@ smUnused = StateMachine
     , QC.semantics = e
     , QC.mock = Echo.mock
     , cleanup = noCleanup
+    , getTraces = Nothing
     }
   where
     e = error "SUT must not be used"
@@ -117,6 +118,7 @@ echoSM  = do
     , QC.semantics = Echo.semantics env
     , QC.mock = Echo.mock
     , cleanup = noCleanup
+    , QC.getTraces = Nothing
     }
 
 transitions :: Model r -> Action r -> Response r -> Model r

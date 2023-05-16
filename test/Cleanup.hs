@@ -217,10 +217,12 @@ sm counter ref bug dc = do
   createDirectory testDir
   pure $ StateMachine (initModel counter ref testDir) transition precondition postcondition
            Nothing generator shrinker (semantics counter ref testDir bug) mock (cleanup dc)
+           Nothing
 
 smUnused :: StateMachine Model Command IO Response
 smUnused = StateMachine (initModel f e "generator") transition precondition postcondition
            Nothing generator shrinker (semantics e e e e) mock (cleanup e)
+           Nothing
  where
    e = error "SUT must not be used"
    f = error "SUT must not be useddd"
@@ -230,9 +232,9 @@ prop_sequential_clean testing bug dc = forAllCommands smUnused Nothing $ \cmds -
     counter <- liftIO $ newMVar 0
     ref <- liftIO $ newMVar 0
     let sm' = sm counter ref bug dc
-    (hist, model, res) <- runCommandsWithSetup sm' cmds
+    (output, hist, model, res) <- runCommandsWithSetup sm' cmds
     case testing of
-        Regular -> prettyCommands smUnused hist $ checkCommandNames cmds (res === Ok)
+        Regular -> prettyCommands smUnused output hist $ checkCommandNames cmds (res === Ok)
         Files   -> do
           ex <- property . not <$> (liftIO $ doesDirectoryExist $ modelTestDir model)
           (do
@@ -249,13 +251,13 @@ prop_parallel_clean testing bug dc = forAllParallelCommands smUnused Nothing $ \
     case testing of
         Regular -> prettyParallelCommands cmds ret
         Files   ->
-          mapM_ (\(_, model, _) -> do
+          mapM_ (\(_, _, model, _) -> do
                     ex <- property . not <$> (liftIO $ doesDirectoryExist $ modelTestDir model)
                     (do
                         ls <- liftIO $ listDirectory $ modelTestDir model
                         printFiles ls) `whenFailM` ex) ret
         Eq bl   -> do
-            let (a, b) = case mkModel smUnused . (\(h, _, _) -> h) <$> ret of
+            let (a, b) = case mkModel smUnused . (\(_, h, _, _) -> h) <$> ret of
                     (x : y : _) -> (x,y)
                     _           -> error "expected at least two histories"
             liftProperty $ printModels a b `whenFail`
@@ -270,13 +272,13 @@ prop_nparallel_clean np testing bug dc = forAllNParallelCommands smUnused np $ \
     case testing of
         Regular -> prettyNParallelCommands cmds ret
         Files   ->
-          mapM_ (\(_, model, _) -> do
+          mapM_ (\(_, _, model, _) -> do
                     ex <- property . not <$> (liftIO $ doesDirectoryExist $ modelTestDir model)
                     (do
                         ls <- liftIO $ listDirectory $ modelTestDir model
                         printFiles ls) `whenFailM` ex) ret
         Eq bl   -> do
-            let (a, b) = case mkModel smUnused . (\(h, _, _) -> h) <$> ret of
+            let (a, b) = case mkModel smUnused . (\(_, h, _, _) -> h) <$> ret of
                     (x : y : _) -> (x,y)
                     _           -> error "expected at least two histories"
             liftProperty $ printModels a b `whenFail`

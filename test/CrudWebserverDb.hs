@@ -351,6 +351,7 @@ mock (Model m) act = case act of
 sm :: StateMachine Model Action (ReaderT ClientEnv IO) Response
 sm = StateMachine initModel transitions preconditions postconditions
        Nothing generator shrinker semantics mock noCleanup
+       Nothing
 
 ------------------------------------------------------------------------
 -- * Sequential property
@@ -358,8 +359,8 @@ sm = StateMachine initModel transitions preconditions postconditions
 prop_crudWebserverDb :: Int -> Property
 prop_crudWebserverDb port =
   forAllCommands sm Nothing $ \cmds -> monadic (ioProperty . runner port) $ do
-    (hist, _, res) <- runCommands sm cmds
-    prettyCommands sm hist (res === Ok)
+    (output, hist, _, res) <- runCommands sm cmds
+    prettyCommands sm output hist (res === Ok)
 
 withCrudWebserverDb :: Bug -> Int -> IO () -> IO ()
 withCrudWebserverDb bug port run =

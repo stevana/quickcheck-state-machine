@@ -139,6 +139,7 @@ ioRefTest = StateMachineTest {
     , runReal    = IORefs.runReal 0 (+1)
     , cleanup    = \_ -> return ()
     , tag        = tagCmds
+    , getTraces  = Nothing
     }
 
 prop_IORefs_sequential :: Property

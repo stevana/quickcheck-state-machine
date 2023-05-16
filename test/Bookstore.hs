@@ -405,7 +405,7 @@ mock (Model m) cmd = return $ case cmd of
 
 sm :: Bug -> StateMachine Model Command (ReaderT ConnectInfo IO) Response
 sm bug = StateMachine initModel transitions preconditions postconditions
-  Nothing generator shrinker (semantics bug) mock noCleanup
+  Nothing generator shrinker (semantics bug) mock noCleanup Nothing
 
 runner :: IO String -> ReaderT ConnectInfo IO Property -> IO Property
 runner io p = do
@@ -424,9 +424,9 @@ runner io p = do
 prop_bookstore :: Bug -> IO String -> Property
 prop_bookstore bug io =
   forAllCommands sm' Nothing $ \cmds -> monadic (ioProperty . runner io) $ do
-    (hist, _, res) <- runCommands sm' cmds
+    (output, hist, _, res) <- runCommands sm' cmds
 
-    prettyCommands sm' hist $ res === Ok
+    prettyCommands sm' output hist $ res === Ok
   where
     sm' = sm bug
 

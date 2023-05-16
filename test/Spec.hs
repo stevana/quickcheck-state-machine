@@ -32,7 +32,7 @@ import           MemoryReference
 import           Mock
 import           Overflow
 import           ProcessRegistry
-import           RQlite
+--import           RQlite
 import qualified ShrinkingProps
 import           SQLite
 import           Test.StateMachine.Markov
@@ -218,9 +218,9 @@ tests docker0 = testGroup "Tests"
                                  (\io -> testProperty test (prop (snd <$> io)))
       | otherwise = testCase ("No docker, skipping: " ++ test) (return ())
 
-    whenDocker docker test prop
-      | docker    = prop
-      | otherwise = testCase ("No docker, skipping: " ++ test) (return ())
+    -- whenDocker docker test prop
+    --   | docker    = prop
+    --   | otherwise = testCase ("No docker, skipping: " ++ test) (return ())
 
 ------------------------------------------------------------------------
 

@@ -27,7 +27,7 @@ import           GHC.Generics
 import           Prelude
 import           System.Random
                    (randomRIO)
-import           Test.QuickCheck
+import           Test.QuickCheck hiding (output)
 import           Test.QuickCheck.Monadic
                    (monadicIO)
 import           Test.StateMachine
@@ -139,11 +139,12 @@ shrinker _ _                    = []
 sm :: StateMachine Model Command IO Response
 sm = StateMachine initModel transition precondition postcondition
            Nothing generator shrinker semantics mock noCleanup
+           Nothing
 
 prop_sequential_overflow :: Property
 prop_sequential_overflow = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
-  (hist, _model, res) <- runCommands sm cmds
-  prettyCommands sm hist (res === Ok)
+  (output, hist, _model, res) <- runCommands sm cmds
+  prettyCommands sm output hist (res === Ok)
 
 prop_parallel_overflow :: Property
 prop_parallel_overflow = forAllParallelCommands sm Nothing $ \cmds -> monadicIO $

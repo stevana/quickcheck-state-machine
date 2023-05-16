@@ -348,6 +348,7 @@ sm = QSM.StateMachine {
        , mock          = mock
        , invariant     = Nothing
        , cleanup       = noCleanup
+       , getTraces     = Nothing
        }
 
 {-------------------------------------------------------------------------------
@@ -379,8 +380,8 @@ instance ToExpr IOVar where
 
 prop_sequential :: Property
 prop_sequential = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
-    (hist, _model, res) <- runCommands sm cmds
-    prettyCommands sm hist (checkCommandNames cmds (res === Ok))
+    (output, hist, _model, res) <- runCommands sm cmds
+    prettyCommands sm output hist (checkCommandNames cmds (res === Ok))
 
 prop_parallel :: Property
 prop_parallel = forAllParallelCommands sm Nothing $ \cmds -> monadicIO $
@@ -700,14 +701,14 @@ prop_nparallel_model n =
 prop_one_thread :: Int -> Property
 prop_one_thread n = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
       let n' = 1 + (n `mod` 10)
-      (hist, _model, _res) <- runCommands sm cmds
+      (_, hist, _model, _res) <- runCommands sm cmds
       let cmdsList = QSM.unCommands cmds
           (px, sx) = splitAt (div (length cmdsList) 3) cmdsList
           cmdsChucks = chunksOf n' sx
           sfxs = (\c -> [c]) . QSM.Commands <$> cmdsChucks
           nParallelCmd = QSM.ParallelCommands {prefix = QSM.Commands px, suffixes = sfxs}
       res <- runNParallelCommandsNTimes 1 sm nParallelCmd
-      let (hist', _ret) = unzip [ (a, c) | (a, _, c) <- res ]
+      let (hist', _ret) = unzip [ (a, c) | (_, a, _, c) <- res ]
       let events = snd <$> (QSM.unHistory hist)
           events' = snd <$> (concat (QSM.unHistory <$> hist'))
       return $ cmpList equalH events' events

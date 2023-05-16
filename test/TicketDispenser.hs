@@ -63,6 +63,10 @@ import           Test.QuickCheck.Monadic
 
 import           Test.StateMachine
 import qualified Test.StateMachine.Types.Rank2 as Rank2
+import Test.StateMachine.Types (TraceOutput(TraceOutput))
+import Test.StateMachine.Sequential (getChanContents)
+import Control.Concurrent.STM.TChan
+import Control.Concurrent.STM (atomically)
 
 ------------------------------------------------------------------------
 
@@ -143,24 +147,34 @@ semantics
                                            -- file lock used for
                                            -- synchronisation.
 
+  -> Tracer IO
+
   -> Action Concrete
 
   -> IO (Response Concrete)
 
-semantics se (tdb, tlock) cmd = case cmd of
+semantics se (tdb, tlock) trcr cmd = case cmd of
   TakeTicket -> do
+    let trcr' = Tracer $ \s -> traceWith trcr $ "[TAKE]  " ++ s
+    traceWith trcr' "Locking"
     lock <- lockFile tlock se
     i <- read <$> readFile tdb
       `catch` (\(_ :: IOException) -> return "-1")
+    traceWith trcr' $ "Last ticket was " ++ show i
     writeFile tdb (show (i + 1))
       `catch` (\(_ :: IOException) -> return ())
     unlockFile lock
+    traceWith trcr' $ "Freed, got ticket " ++ show (i + 1)
     return (GotTicket (i + 1))
   Reset      -> do
+    let trcr' = Tracer $ \s -> traceWith trcr $ "[RESET] " ++ s
+    traceWith trcr' "Locking"
     lock <- lockFile tlock se
     writeFile tdb (show (0 :: Integer))
       `catch` (\(_ :: IOException) -> return ())
+    traceWith trcr' "Reset done"
     unlockFile lock
+    traceWith trcr' "Freed"
     return ResetOk
 
 mock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
@@ -197,13 +211,16 @@ withDbLock run = do
 sm :: SharedExclusive -> IO (StateMachine Model Action IO Response)
 sm se = do
   lock <- setupLock
+  trcr <- newTChanIO
   pure $ StateMachine initModel transitions preconditions postconditions
-         Nothing generator shrinker (semantics se lock) mock (const $ cleanupLock lock)
+         Nothing generator shrinker (semantics se lock (Tracer $ atomically . writeTChan trcr)) mock (const $ cleanupLock lock)
+         (Just $ TraceOutput <$> getChanContents trcr)
 
 smUnused :: StateMachine Model Action IO Response
 smUnused =
   StateMachine initModel transitions preconditions postconditions
          Nothing generator shrinker e mock noCleanup
+         Nothing
  where
    e = error "SUT must not be used"
 
@@ -213,8 +230,8 @@ smUnused =
 prop_ticketDispenser :: Property
 prop_ticketDispenser =
   forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-      (hist, _, res) <- runCommandsWithSetup (sm Shared) cmds
-      prettyCommands smUnused hist $
+      (output, hist, _, res) <- runCommandsWithSetup (sm Shared) cmds
+      prettyCommands smUnused output hist $
         checkCommandNames cmds (res === Ok)
 
 prop_ticketDispenserParallel :: SharedExclusive -> Property

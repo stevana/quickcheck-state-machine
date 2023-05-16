@@ -221,9 +221,10 @@ shrinker _ _       = []
 sm :: StateMachine Model Command IO Response
 sm = StateMachine initModel transition precondition postcondition
          Nothing generator shrinker semantics mock noCleanup
+         Nothing
 
 prop_unionFindSequential :: Property
 prop_unionFindSequential =
   forAllCommands sm Nothing $ \cmds -> monadicIO $ do
-    (hist, _model, res) <- runCommands sm cmds
-    prettyCommands sm hist (checkCommandNames cmds (res === Ok))
+    (output, hist, _model, res) <- runCommands sm cmds
+    prettyCommands sm output hist (checkCommandNames cmds (res === Ok))

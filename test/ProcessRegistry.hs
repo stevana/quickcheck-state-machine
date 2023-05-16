@@ -427,6 +427,7 @@ mock m act = case act of
 sm :: StateMachine Model Action IO Response
 sm = StateMachine initModel transition precondition postcondition
        Nothing generator shrinker semantics mock noCleanup
+       Nothing
 
 markov :: Markov State Action_ Double
 markov = makeMarkov
@@ -563,14 +564,14 @@ printLabelledExamples = showLabelledExamples sm tag
 prop_processRegistry :: StatsDb IO -> Property
 prop_processRegistry sdb = forAllCommands sm (Just 100000) $ \cmds -> monadicIO $ do
   liftIO ioReset
-  (hist, _model, res) <- runCommands sm cmds
+  (output, hist, _model, res) <- runCommands sm cmds
 
   let observed = historyObservations sm markov partition constructor hist
       reqs     = tag (execCmds sm cmds)
 
   persistStats sdb observed
 
-  prettyCommands' sm tag cmds hist
+  prettyCommands' sm tag cmds output hist
     $ tabulate "_Requirements" (map show reqs)
     $ coverMarkov markov
     $ tabulateMarkov sm partition constructor cmds

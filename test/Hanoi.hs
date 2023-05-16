@@ -125,6 +125,7 @@ mock _ _ = return Done
 sm :: Int -> StateMachine Model Command IO Response
 sm discs = StateMachine (initModel discs) transitions preconditions postconditions
        Nothing generator shrinker semantics mock noCleanup
+       Nothing
 
 -- A sequential property for Tower of Hanoi with n discs.
 
@@ -133,5 +134,5 @@ sm discs = StateMachine (initModel discs) transitions preconditions postconditio
 
 prop_hanoi :: Int -> Property
 prop_hanoi n = forAllCommands (sm n) Nothing $ \cmds -> monadicIO $ do
-  (hist, _model, res) <- runCommands (sm n) cmds
-  prettyCommands (sm n) hist (checkCommandNames cmds (res === Ok))
+  (output, hist, _model, res) <- runCommands (sm n) cmds
+  prettyCommands (sm n) output hist (checkCommandNames cmds (res === Ok))

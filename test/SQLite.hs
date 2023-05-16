@@ -289,6 +289,7 @@ sm folder = do
    , cleanup       = \model -> do
        liftIO $ closeSqlAsyncPool poolBackend
        clean folder model
+   , getTraces     = Nothing
    }
 
 smUnused :: StateMachine Model (At Cmd) IO (At Resp)
@@ -304,6 +305,7 @@ smUnused =
    , semantics     = e
    , mock          = mockImpl
    , cleanup       = e
+   , getTraces     = Nothing
    }
  where
    e = error "SUT must not be used"
@@ -341,8 +343,8 @@ clean folder _ = liftIO $ removePathForcibly folder
 prop_sequential_sqlite :: Property
 prop_sequential_sqlite =
     forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-        (hist, _model, res) <- runCommandsWithSetup (sm "sqlite-seq")  cmds
-        prettyCommands smUnused hist $ res === Ok
+        (output, hist, _model, res) <- runCommandsWithSetup (sm "sqlite-seq")  cmds
+        prettyCommands smUnused output hist $ res === Ok
 
 prop_parallel_sqlite :: Property
 prop_parallel_sqlite =

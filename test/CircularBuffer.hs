@@ -283,13 +283,14 @@ sm :: Version -> Bugs -> StateMachine Model Action IO Response
 sm version bugs = StateMachine
   initModel transition (precondition bugs) postcondition
   Nothing (generator version) shrinker (semantics bugs) mock noCleanup
+  Nothing
 
 -- | Property parameterized by spec version and bugs.
 prepropcircularBuffer :: Version -> Bugs -> Property
 prepropcircularBuffer version bugs =
   forAllCommands sm' Nothing $ \cmds -> monadicIO $ do
-    (hist, _, res) <- runCommands sm' cmds
-    prettyCommands sm' hist $
+    (output, hist, _, res) <- runCommands sm' cmds
+    prettyCommands sm' output hist $
       checkCommandNames cmds (res === Ok)
   where
     sm' = sm version bugs
