@@ -56,7 +56,7 @@ data Bug = None | Logic | Race
   deriving Eq
 
 semantics :: Bug -> Command Concrete -> IO (Response Concrete)
-semantics bug cmd = case cmd of
+semantics bug _cmd = case cmd of
   Create        -> Created     <$> (reference . Opaque <$> newIORef 0)
   Read ref      -> ReadValue   <$> readIORef  (opaque ref)
   Write ref i   -> Written     <$  writeIORef (opaque ref) i'
@@ -205,8 +205,8 @@ We can now define a sequential property as follows.
 ```haskell
 prop_sequential :: Bug -> Property
 prop_sequential bug = forAllCommands sm' Nothing $ \cmds -> monadicIO $ do
-  (hist, _model, res) <- runCommands sm' cmds
-  prettyCommands sm' hist (checkCommandNames cmds (res === Ok))
+  (output, hist, _model, res) <- runCommands sm' cmds
+  prettyCommands sm' output hist (checkCommandNames cmds (res === Ok))
     where
       sm' = sm bug
 ```
@@ -309,11 +309,16 @@ ParallelCommands
 └──────────────────────────────────────────────┘ │
 
 AnnotateC "Read" (PredicateC (1 :/= 2))
+
+However, some repetitions of this sequence of commands passed. Maybe there is a race condition?
 ```
 
 As we can see above, a mutable reference is first created, and then in
 parallel (concurrently) we do two increments of said reference, and finally we
 read the value `1` while the model expects `2`.
+
+Note that we get a suggestion at the bottom, which we will explain
+[here](#suggestion-for-the-cause).
 
 Recall that incrementing is implemented by first reading the reference and
 then writing it, if two such actions are interleaved then one of the writes
@@ -323,6 +328,50 @@ We shall come back to this example below, but if your are impatient you can
 find the full source
 code
 [here](https://github.com/stevana/quickcheck-state-machine/blob/master/test/MemoryReference.hs).
+
+### Tracing messages
+
+Sometimes the responses provided by the commands omit internal steps taken
+during the execution that could be interesting to be inspected. The user can
+introduce tracers at please on the state machine, but the field `getTraces` can
+be filled so that the output shows the emitted traces for the specific failing
+test case. 
+
+This is an example of such behavior whose implementation can be seen [here](https://github.com/stevana/quickcheck-state-machine/blob/master/test/TicketDispenser.hs):
+
+``` 
+> cabal run tests -- -p TicketDispenser.ParallelWithSharedLock
+Tests
+  TicketDispenser
+    ParallelWithSharedLock: 
+┌──────────────────────────────────┐
+│ [] ← Reset                       │
+│                        → ResetOk │
+└──────────────────────────────────┘
+               │ ┌─────────────────┐
+               │ │ [] ← TakeTicket │
+┌────────────┐ │ │                 │
+│ [] ← Reset │ │ │                 │
+│            │ │ │   → GotTicket 0 │
+│            │ │ └─────────────────┘
+│  → ResetOk │ │                    
+└────────────┘ │                    
+
+EitherC (PredicateC (Just 0 :/= Just 1)) (PredicateC (Just 0 :/= Just 1))
+
+The execution emitted the following trace messages:
+  [RESET] Locking
+  [RESET] Reset done
+  [RESET] Freed
+  [RESET] Locking
+  [TAKE]  Locking
+  [TAKE]  Last ticket was -1
+  [TAKE]  Freed, got ticket 0
+  [RESET] Reset done
+  [RESET] Freed
+  
+However, some repetitions of this sequence of commands passed. Maybe there is a race condition?
+```
 
 ### How it works
 
@@ -434,6 +483,19 @@ multiple times for the same test case expecting that the scheduling of events
 varies between runs. One can further increase entropy by introducing random
 `threadDelay`s in the semantic function.
 
+#### Suggestion for the cause
+
+As each command is repeated N times as just mentioned, we can get some
+information out of that. In particular, if only some of those repetitions
+failed, it could indicate that there is a random error happening or that there
+is a race condition. 
+
+On the other hand, if all the repetitions failed, this could indicate that we
+either didn't hit the random condition for the error, or that there is a
+deterministic logic bug taking place. 
+
+Either case will be suggested at the bottom of the failing test case.
+
 #### SUT initialization
 
 Some tests might require an environment that is used by the SUT to perform its
@@ -446,7 +508,7 @@ defining the state machine inside a monadic action and use the
 
 ``` haskell
 
-semantics :: Env -> Command Concrete -> m Response Concrete
+semantics :: Env -> Tracer m -> Command Concrete -> m Response Concrete
 semantics = ...
 
 sm :: m (StateMachine Model Command m Response)
