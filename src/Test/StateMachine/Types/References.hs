@@ -91,8 +91,12 @@ instance Show1 Concrete where
     where
       appPrec = 10
 
+deriving instance Eq a => Eq (Concrete a)
+
 instance Eq1 Concrete where
   liftEq eq (Concrete x) (Concrete y) = eq x y
+
+deriving instance Ord a => Ord (Concrete a)
 
 instance Ord1 Concrete where
   liftCompare comp (Concrete x) (Concrete y) = comp x y
