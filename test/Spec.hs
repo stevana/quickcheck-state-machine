@@ -32,13 +32,15 @@ import           MemoryReference
 import           Mock
 import           Overflow
 import           ProcessRegistry
-import           RQlite
 import qualified ShrinkingProps
 import           SQLite
 import           Test.StateMachine.Markov
                    (PropertyName, StatsDb, fileStatsDb)
 import           TicketDispenser
 import qualified UnionFind
+
+-- RQlite tests fail, see #14
+import           RQlite
 
 ------------------------------------------------------------------------
 
@@ -218,9 +220,10 @@ tests docker0 = testGroup "Tests"
                                  (\io -> testProperty test (prop (snd <$> io)))
       | otherwise = testCase ("No docker, skipping: " ++ test) (return ())
 
-    whenDocker docker test prop
-      | docker    = prop
-      | otherwise = testCase ("No docker, skipping: " ++ test) (return ())
+    -- Currently unused, see #14
+    -- whenDocker docker test prop
+    --   | docker    = prop
+    --   | otherwise = testCase ("No docker, skipping: " ++ test) (return ())
 
 ------------------------------------------------------------------------
 
