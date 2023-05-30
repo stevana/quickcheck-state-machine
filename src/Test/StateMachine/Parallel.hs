@@ -120,6 +120,7 @@ import           Test.StateMachine.Sequential
 import           Test.StateMachine.Types
 import qualified Test.StateMachine.Types.Rank2     as Rank2
 import           Test.StateMachine.Utils
+import qualified Text.PrettyPrint.ANSI.Leijen as PP
 
 ------------------------------------------------------------------------
 
@@ -815,11 +816,19 @@ prettyParallelCommandsWithOpts cmds mGraphOptions histories = do
   mapM_ (\(h, _, l) -> printCounterexample h (logic l) `whenFailM` property (boolean l)) histories
     where
       printCounterexample hist' (VFalse ce) = do
-        putStrLn ""
-        print (toBoxDrawings cmds hist')
-        putStrLn ""
-        print (simplify ce)
-        putStrLn ""
+        PP.putDoc $
+          mconcat
+           [ PP.line
+           , PP.string (show $ toBoxDrawings cmds hist')
+           , PP.string (show $ simplify ce)
+           , PP.line
+           , PP.line
+           , PP.string $
+             if or [ boolean l | (_, _, l) <- histories]
+             then "However, some repetitions of this sequence of commands passed. Maybe there is a race condition?"
+             else "And all repetitions of this sequence of commands failed. Maybe there is a logic bug? Try with more repetitions to be sure that it happens consistently"
+           , PP.line
+           ]
         case mGraphOptions of
           Nothing       -> return ()
           Just gOptions -> createAndPrintDot cmds gOptions hist'
@@ -857,9 +866,18 @@ prettyNParallelCommandsWithOpts cmds mGraphOptions histories =
    mapM_ (\(h, _, l) -> printCounterexample h (logic l) `whenFailM` property (boolean l)) histories
     where
       printCounterexample hist' (VFalse ce) = do
-        putStrLn ""
-        print (simplify ce)
-        putStrLn ""
+        PP.putDoc $
+          mconcat
+           [ PP.line
+           , PP.string (show $ simplify ce)
+           , PP.line
+           , PP.line
+           , PP.string $
+             if or [ boolean l | (_, _, l) <- histories]
+             then "However, some repetitions of this sequence of commands passed. Maybe there is a race condition?"
+             else "And all repetitions of this sequence of commands failed. Maybe there is a logic bug? Try with more repetitions to be sure that it happens consistently"
+           , PP.line
+           ]
         case mGraphOptions of
           Nothing       -> return ()
           Just gOptions -> createAndPrintDot cmds gOptions hist'
