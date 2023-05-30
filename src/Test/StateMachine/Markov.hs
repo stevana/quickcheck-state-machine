@@ -142,7 +142,7 @@ from -< es = Map.singleton from (map go es)
     go (Right ((command, probability), to)) = Transition {..}
 
     (ls, rs) = partitionEithers es
-    uniform  = (100 - sum (map snd (map fst rs))) / genericLength ls
+    uniform  = (100 - sum (map (snd . fst) rs)) / genericLength ls
     -- ^ Note: If `length ls == 0` then `uniform` is not used, so division by
     -- zero doesn't happen.
 
@@ -194,9 +194,8 @@ coverMarkov :: (Show state, Show cmd_, Testable prop)
             => Markov state cmd_ Double -> prop -> Property
 coverMarkov markov prop = foldr go (property prop) (Map.toList (unMarkov markov))
   where
-    go (from, ts) ih =
-      coverTable (show from)
-        (map (\Transition{..} -> (toTransitionString command to, probability)) ts) ih
+    go (from, ts) = coverTable (show from)
+        (map (\Transition{..} -> (toTransitionString command to, probability)) ts)
 
 toTransitionString :: (Show state, Show cmd_) => cmd_ -> state -> String
 toTransitionString cmd to = "-< " ++ show cmd ++ " >- " ++ show to
@@ -218,8 +217,7 @@ tabulateMarkov sm partition constructor cmds0 =
                         -> Property
     tabulateTransitions ts prop = foldr go (property prop) ts
       where
-        go (from, Transition {..}) ih =
-          tabulate (show from) [ toTransitionString command to ] ih
+        go (from, Transition {..}) = tabulate (show from) [ toTransitionString command to ]
 
     commandsToTransitions :: StateMachine model cmd m resp
                           -> Commands cmd resp
@@ -438,7 +436,7 @@ fileStatsDb fp name = StatsDb
 
       let mprior' = case (mprior, mnew) of
             (Just (sprior, fprior), Just new) ->
-              Just (bimap sumElem sumElem (bimap (sprior :) (fprior :) (unzip new)))
+              Just (bimap (sumElem . (sprior :)) (sumElem . (fprior :)) (unzip new))
             (Nothing, Just new)   -> Just (bimap sumElem sumElem (unzip new))
             (Just prior, Nothing) -> Just prior
             (Nothing, Nothing)    -> Nothing
@@ -452,10 +450,8 @@ fileStatsDb fp name = StatsDb
       return mprior'
 
       where
-        parseMany :: String -> Maybe ([(Matrix Double, Matrix Double)])
-        parseMany = sequence
-                  . map parse
-                  . lines
+        parseMany :: String -> Maybe [(Matrix Double, Matrix Double)]
+        parseMany = mapM parse . lines
 
         parse :: String -> Maybe (Matrix Double, Matrix Double)
         parse = fmap (bimap fromLists fromLists) . readMaybe

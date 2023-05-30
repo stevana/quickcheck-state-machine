@@ -242,13 +242,13 @@ generateNParallelCommands sm@StateMachine { initModel } np =
   return (ParallelCommands prefix
             (makeSuffixes (advanceModel sm initModel prefix) rest))
   where
-    makeSuffixes :: model Symbolic -> Commands cmd resp -> [[(Commands cmd resp)]]
+    makeSuffixes :: model Symbolic -> Commands cmd resp -> [[Commands cmd resp]]
     makeSuffixes model0 = go model0 [] . unCommands
       where
         go :: model Symbolic
-           -> [[(Commands cmd resp)]]
-           -> [(Command cmd resp)]
-           -> [[(Commands cmd resp)]]
+           -> [[Commands cmd resp]]
+           -> [Command cmd resp]
+           -> [[Commands cmd resp]]
         go _     acc []   = reverse acc
         go model acc cmds = go (advanceModel sm model (Commands safe))
                                (safes : acc)
@@ -466,7 +466,7 @@ shrinkAndValidateNParallel sm = \shouldShrink  (ParallelCommands prefix suffixes
         go' acc env shouldShrink (suffix : suffixes) = do
             (suffixWithShrinks, shrinkRest) <- shrinkOpts suffix
             (envFinal, suffix') <- snd $ foldl f (True, [(env,[])]) suffixWithShrinks
-            go' ((reverse suffix') : acc) envFinal shrinkRest suffixes
+            go' (reverse suffix' : acc) envFinal shrinkRest suffixes
           where
 
             f :: (Bool, [(ValidateEnv model, [Commands cmd resp])])
@@ -489,7 +489,7 @@ shrinkAndValidateNParallel sm = \shouldShrink  (ParallelCommands prefix suffixes
                   shrinks = if len == 0
                     then error "Invariant violation! A suffix should never be an empty list"
                     else flip map [1..len] $ \n ->
-                        (replicate (n - 1) DontShrink) ++ [MustShrink] ++ (replicate (len - n) DontShrink)
+                        replicate (n - 1) DontShrink ++ [MustShrink] ++ replicate (len - n) DontShrink
               in case shouldShrink of
                   DontShrink -> [(zip dontShrink ls, DontShrink)]
                   MustShrink -> fmap (\shrinkLs -> (zip shrinkLs ls, DontShrink)) shrinks
@@ -961,7 +961,7 @@ createAndPrintDot (ParallelCommands prefix suffixes) gOptions = toDotGraph allVa
                 foldMap (foldMap getAllUsedVars) suffixes
 
     toDotGraph :: Set Var -> History cmd resp -> IO ()
-    toDotGraph knownVars (History h) = printDotGraph gOptions $ (fmap out) <$> (Rose (snd <$> prefixMessages) groupByPid)
+    toDotGraph knownVars (History h) = printDotGraph gOptions $ fmap out <$> Rose (snd <$> prefixMessages) groupByPid
       where
         (prefixMessages, h') = partition (\e -> fst e == Pid 0) h
         alterF a Nothing   = Just [a]

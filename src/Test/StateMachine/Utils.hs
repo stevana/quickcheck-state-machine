@@ -2,6 +2,7 @@
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -40,8 +41,7 @@ module Test.StateMachine.Utils
 
 import           Prelude
 
-import           Control.Arrow
-                   ((***))
+import           Data.Bifunctor (second)
 import           Data.List
                    (foldl')
 import           Test.QuickCheck
@@ -156,15 +156,15 @@ shrinkPairS' f = shrinkPairS f f
 -- > == [ (1,([2],[3,4])), (2,([1],[3,4])), (3,([1,2],[4])), (4,([1,2],[3])) ]
 pickOneReturnRest2 :: ([a], [a]) -> [(a, ([a],[a]))]
 pickOneReturnRest2 (xs, ys) =
-  map (id *** flip (,) ys) (pickOneReturnRest xs) ++
-  map (id ***      (,) xs) (pickOneReturnRest ys)
+  map (second (,ys)) (pickOneReturnRest xs) ++
+  map (second (xs,)) (pickOneReturnRest ys)
 
 -- >    pickOneReturnRest []     == []
 -- >    pickOneReturnRest [1]    == [ (1,[]) ]
 -- >    pickOneReturnRest [1..3] == [ (1,[2,3]), (2,[1,3]), (3,[1,2]) ]
 pickOneReturnRest :: [a] -> [(a, [a])]
 pickOneReturnRest []       = []
-pickOneReturnRest (x : xs) = (x, xs) : map (id *** (x :)) (pickOneReturnRest xs)
+pickOneReturnRest (x : xs) = (x, xs) : map (second (x :)) (pickOneReturnRest xs)
 
 -- >    pickOneReturnRestL [[]] == []
 -- >    pickOneReturnRestL [[1]] == [(1,[[]])]
@@ -174,13 +174,12 @@ pickOneReturnRest (x : xs) = (x, xs) : map (id *** (x :)) (pickOneReturnRest xs)
 -- > == [ (1,[[2],[3,4]]), (2,[[1],[3,4]]), (3,[[1,2],[4]]), (4,[[1,2],[3]]) ]
 pickOneReturnRestL :: [[a]] -> [(a, [[a]])]
 pickOneReturnRestL ls = concatMap
-  (\(prev, as, next) -> fmap (\(a, rest) -> (a, prev ++ [rest] ++ next)) $ pickOneReturnRest as)
+  (\(prev, as, next) -> (\(a, rest) -> (a, prev ++ [rest] ++ next)) <$> pickOneReturnRest as)
   $ splitEach ls
     where
       splitEach :: [a] -> [([a], a, [a])]
       splitEach []       = []
-      splitEach (a : as) = fmap (\(prev, a', next) -> (prev, a', next)) $
-        go' [([], a, as)] ([], a, as)
+      splitEach (a : as) = (\(prev, a', next) -> (prev, a', next)) <$> go' [([], a, as)] ([], a, as)
           where
             go' :: [([a], a, [a])] -> ([a], a, [a]) -> [([a], a, [a])]
             go' acc (_, _, []) = reverse acc
@@ -196,4 +195,4 @@ mkModel StateMachine {transition, initModel} =
     where
         go m [] = m
         go m (Operation cmd resp _ : rest) = go (transition m cmd resp) rest
-        go m (Crash _ _ _ : rest) = go m rest
+        go m (Crash {} : rest) = go m rest

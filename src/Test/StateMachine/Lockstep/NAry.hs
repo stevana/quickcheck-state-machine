@@ -7,7 +7,6 @@
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs               #-}
-{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -161,7 +160,7 @@ instance All (And ToExpr (Compose ToExpr (MockHandle t))) (RealHandles t)
          . unRefss
     where
       toExprOne :: (ToExpr a, ToExpr (MockHandle t a))
-                => Refs t Concrete a -> K (TD.Expr) a
+                => Refs t Concrete a -> K TD.Expr a
       toExprOne = K . toExpr
 
 instance SListI (RealHandles t) => Semigroup (Refss t r) where
@@ -272,7 +271,7 @@ semantics :: StateMachineTest t m
           -> Cmd t :@ Concrete
           -> m (Resp t :@ Concrete)
 semantics StateMachineTest{..} (At c) =
-    (At . ncfmap (Proxy @Typeable) (const wrapConcrete)) <$>
+    At . ncfmap (Proxy @Typeable) (const wrapConcrete) <$>
       runReal (nfmap (const unwrapConcrete) c)
 
 unwrapConcrete :: FlipRef Concrete a -> I a
@@ -368,7 +367,7 @@ precondition (Model _ (Refss hs)) (At c) =
     Boolean (M.getAll $ nfoldMap check c) .// "No undefined handles"
   where
     check :: Elem (RealHandles t) a -> FlipRef Symbolic a -> M.All
-    check ix (FlipRef a) = M.All $ any (sameRef a) $ map fst (unRefs (hs `npAt` ix))
+    check ix (FlipRef a) = M.All $ any (sameRef a . fst) (unRefs (hs `npAt` ix))
 
     -- TODO: Patch QSM
     sameRef :: Reference a Symbolic -> Reference a Symbolic -> Bool

@@ -3,7 +3,6 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
-{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -61,7 +60,7 @@ class NTraversable (f :: (k -> Type) -> [k] -> Type) where
 ntraverse :: (NTraversable f, Applicative m, SListI xs)
           => (forall a. Elem xs a -> g a -> m (h a))
           -> f g xs -> m (f h xs)
-ntraverse f  = nctraverse (Proxy @Top) f
+ntraverse = nctraverse (Proxy @Top)
 
 ncfmap :: (NTraversable f, All c xs)
        => proxy c
@@ -72,7 +71,7 @@ ncfmap p f xs = unI $ nctraverse p (\ix -> I . f ix) xs
 nfmap :: (NTraversable f, SListI xs)
       => (forall a. Elem xs a -> g a -> h a)
       -> f g xs -> f h xs
-nfmap f xs = ncfmap (Proxy @Top) f xs
+nfmap = ncfmap (Proxy @Top)
 
 ncfoldMap :: forall proxy f g m c xs.
              (NTraversable f, Monoid m, All c xs)
@@ -82,7 +81,7 @@ ncfoldMap :: forall proxy f g m c xs.
 ncfoldMap p f = \xs -> execState (aux xs) mempty
   where
     aux :: f g xs -> State m (f g xs)
-    aux xs = nctraverse p aux' xs
+    aux = nctraverse p aux'
 
     aux' :: c a => Elem xs a -> g a -> State m (g a)
     aux' ix ga = modify (f ix ga `mappend`) >> return ga
@@ -90,4 +89,4 @@ ncfoldMap p f = \xs -> execState (aux xs) mempty
 nfoldMap :: (NTraversable f, Monoid m, SListI xs)
          => (forall a. Elem xs a -> g a -> m)
          -> f g xs -> m
-nfoldMap f xs = ncfoldMap (Proxy @Top) f xs
+nfoldMap = ncfoldMap (Proxy @Top)
