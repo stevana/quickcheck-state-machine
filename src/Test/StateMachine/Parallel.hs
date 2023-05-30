@@ -87,7 +87,7 @@ import           Data.Bifunctor
 import           Data.Foldable
                    (toList)
 import           Data.List
-                   (find, partition, permutations)
+                   (find, partition, permutations, foldl')
 import qualified Data.Map.Strict                   as Map
 import           Data.Maybe
                    (fromMaybe, mapMaybe)
@@ -903,9 +903,23 @@ toBoxDrawings (ParallelCommands prefix suffixes) = toBoxDrawings'' allVars
                 foldMap (foldMap getAllUsedVars) suffixes
 
     toBoxDrawings'' :: Set Var -> History cmd resp -> Doc
-    toBoxDrawings'' knownVars (History h) = exec evT (fmap (out . snd) <$> Fork l p r)
+    toBoxDrawings'' knownVars (History h) = mconcat
+        ([ exec evT (fmap (out  . snd) <$> Fork l p r)
+         , PP.line
+         , PP.line
+         ]
+         ++ map ppException exceptions
+        )
       where
-        (p, h') = partition (\e -> fst e == Pid 0) h
+        (_, exceptions, h'') = foldl'
+               (\(i, excs, evs) (pid, ev) ->
+                  case ev of
+                    Exception err -> (i + 1, excs ++ [(i, err)], evs ++ [(pid, Exception $ "Exception " <> show i)])
+                    _ -> (i, excs, evs ++ [(pid, ev)])
+               )
+               (0 :: Int, [], [])
+               h
+        (p, h') = partition (\e -> fst e == Pid 0) h''
         (l, r)  = partition (\e -> fst e == Pid 1) h'
 
         out :: HistoryEvent cmd resp -> String
@@ -925,6 +939,15 @@ toBoxDrawings (ParallelCommands prefix suffixes) = toBoxDrawings'' allVars
 
         evT :: [(EventType, Pid)]
         evT = toEventType (filter (\e -> fst e `Prelude.elem` map Pid [1, 2]) h)
+
+        ppException :: (Int, String) -> Doc
+        ppException (idx, err) = mconcat
+         [ PP.string $ "Exception " <> show idx <> ":"
+         , PP.line
+         , PP.indent 2 $ PP.string err
+         , PP.line
+         , PP.line
+         ]
 
 createAndPrintDot :: forall cmd resp t. Foldable t => Rank2.Foldable cmd
                   => (Show (cmd Concrete), Show (resp Concrete))
