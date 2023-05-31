@@ -87,7 +87,7 @@ import           Data.Bifunctor
 import           Data.Foldable
                    (toList)
 import           Data.List
-                   (find, partition, permutations)
+                   (find, partition, permutations, foldl')
 import qualified Data.Map.Strict                   as Map
 import           Data.Maybe
                    (fromMaybe, mapMaybe)
@@ -120,6 +120,7 @@ import           Test.StateMachine.Sequential
 import           Test.StateMachine.Types
 import qualified Test.StateMachine.Types.Rank2     as Rank2
 import           Test.StateMachine.Utils
+import qualified Text.PrettyPrint.ANSI.Leijen as PP
 
 ------------------------------------------------------------------------
 
@@ -241,13 +242,13 @@ generateNParallelCommands sm@StateMachine { initModel } np =
   return (ParallelCommands prefix
             (makeSuffixes (advanceModel sm initModel prefix) rest))
   where
-    makeSuffixes :: model Symbolic -> Commands cmd resp -> [[(Commands cmd resp)]]
+    makeSuffixes :: model Symbolic -> Commands cmd resp -> [[Commands cmd resp]]
     makeSuffixes model0 = go model0 [] . unCommands
       where
         go :: model Symbolic
-           -> [[(Commands cmd resp)]]
-           -> [(Command cmd resp)]
-           -> [[(Commands cmd resp)]]
+           -> [[Commands cmd resp]]
+           -> [Command cmd resp]
+           -> [[Commands cmd resp]]
         go _     acc []   = reverse acc
         go model acc cmds = go (advanceModel sm model (Commands safe))
                                (safes : acc)
@@ -465,7 +466,7 @@ shrinkAndValidateNParallel sm = \shouldShrink  (ParallelCommands prefix suffixes
         go' acc env shouldShrink (suffix : suffixes) = do
             (suffixWithShrinks, shrinkRest) <- shrinkOpts suffix
             (envFinal, suffix') <- snd $ foldl f (True, [(env,[])]) suffixWithShrinks
-            go' ((reverse suffix') : acc) envFinal shrinkRest suffixes
+            go' (reverse suffix' : acc) envFinal shrinkRest suffixes
           where
 
             f :: (Bool, [(ValidateEnv model, [Commands cmd resp])])
@@ -488,7 +489,7 @@ shrinkAndValidateNParallel sm = \shouldShrink  (ParallelCommands prefix suffixes
                   shrinks = if len == 0
                     then error "Invariant violation! A suffix should never be an empty list"
                     else flip map [1..len] $ \n ->
-                        (replicate (n - 1) DontShrink) ++ [MustShrink] ++ (replicate (len - n) DontShrink)
+                        replicate (n - 1) DontShrink ++ [MustShrink] ++ replicate (len - n) DontShrink
               in case shouldShrink of
                   DontShrink -> [(zip dontShrink ls, DontShrink)]
                   MustShrink -> fmap (\shrinkLs -> (zip shrinkLs ls, DontShrink)) shrinks
@@ -815,11 +816,19 @@ prettyParallelCommandsWithOpts cmds mGraphOptions histories = do
   mapM_ (\(h, _, l) -> printCounterexample h (logic l) `whenFailM` property (boolean l)) histories
     where
       printCounterexample hist' (VFalse ce) = do
-        putStrLn ""
-        print (toBoxDrawings cmds hist')
-        putStrLn ""
-        print (simplify ce)
-        putStrLn ""
+        PP.putDoc $
+          mconcat
+           [ PP.line
+           , PP.string (show $ toBoxDrawings cmds hist')
+           , PP.string (show $ simplify ce)
+           , PP.line
+           , PP.line
+           , PP.string $
+             if or [ boolean l | (_, _, l) <- histories]
+             then "However, some repetitions of this sequence of commands passed. Maybe there is a race condition?"
+             else "And all repetitions of this sequence of commands failed. Maybe there is a logic bug? Try with more repetitions to be sure that it happens consistently"
+           , PP.line
+           ]
         case mGraphOptions of
           Nothing       -> return ()
           Just gOptions -> createAndPrintDot cmds gOptions hist'
@@ -857,9 +866,18 @@ prettyNParallelCommandsWithOpts cmds mGraphOptions histories =
    mapM_ (\(h, _, l) -> printCounterexample h (logic l) `whenFailM` property (boolean l)) histories
     where
       printCounterexample hist' (VFalse ce) = do
-        putStrLn ""
-        print (simplify ce)
-        putStrLn ""
+        PP.putDoc $
+          mconcat
+           [ PP.line
+           , PP.string (show $ simplify ce)
+           , PP.line
+           , PP.line
+           , PP.string $
+             if or [ boolean l | (_, _, l) <- histories]
+             then "However, some repetitions of this sequence of commands passed. Maybe there is a race condition?"
+             else "And all repetitions of this sequence of commands failed. Maybe there is a logic bug? Try with more repetitions to be sure that it happens consistently"
+           , PP.line
+           ]
         case mGraphOptions of
           Nothing       -> return ()
           Just gOptions -> createAndPrintDot cmds gOptions hist'
@@ -885,9 +903,23 @@ toBoxDrawings (ParallelCommands prefix suffixes) = toBoxDrawings'' allVars
                 foldMap (foldMap getAllUsedVars) suffixes
 
     toBoxDrawings'' :: Set Var -> History cmd resp -> Doc
-    toBoxDrawings'' knownVars (History h) = exec evT (fmap (out . snd) <$> Fork l p r)
+    toBoxDrawings'' knownVars (History h) = mconcat
+        ([ exec evT (fmap (out  . snd) <$> Fork l p r)
+         , PP.line
+         , PP.line
+         ]
+         ++ map ppException exceptions
+        )
       where
-        (p, h') = partition (\e -> fst e == Pid 0) h
+        (_, exceptions, h'') = foldl'
+               (\(i, excs, evs) (pid, ev) ->
+                  case ev of
+                    Exception err -> (i + 1, excs ++ [(i, err)], evs ++ [(pid, Exception $ "Exception " <> show i)])
+                    _ -> (i, excs, evs ++ [(pid, ev)])
+               )
+               (0 :: Int, [], [])
+               h
+        (p, h') = partition (\e -> fst e == Pid 0) h''
         (l, r)  = partition (\e -> fst e == Pid 1) h'
 
         out :: HistoryEvent cmd resp -> String
@@ -908,6 +940,15 @@ toBoxDrawings (ParallelCommands prefix suffixes) = toBoxDrawings'' allVars
         evT :: [(EventType, Pid)]
         evT = toEventType (filter (\e -> fst e `Prelude.elem` map Pid [1, 2]) h)
 
+        ppException :: (Int, String) -> Doc
+        ppException (idx, err) = mconcat
+         [ PP.string $ "Exception " <> show idx <> ":"
+         , PP.line
+         , PP.indent 2 $ PP.string err
+         , PP.line
+         , PP.line
+         ]
+
 createAndPrintDot :: forall cmd resp t. Foldable t => Rank2.Foldable cmd
                   => (Show (cmd Concrete), Show (resp Concrete))
                   => ParallelCommandsF t cmd resp
@@ -920,7 +961,7 @@ createAndPrintDot (ParallelCommands prefix suffixes) gOptions = toDotGraph allVa
                 foldMap (foldMap getAllUsedVars) suffixes
 
     toDotGraph :: Set Var -> History cmd resp -> IO ()
-    toDotGraph knownVars (History h) = printDotGraph gOptions $ (fmap out) <$> (Rose (snd <$> prefixMessages) groupByPid)
+    toDotGraph knownVars (History h) = printDotGraph gOptions $ fmap out <$> Rose (snd <$> prefixMessages) groupByPid
       where
         (prefixMessages, h') = partition (\e -> fst e == Pid 0) h
         alterF a Nothing   = Just [a]

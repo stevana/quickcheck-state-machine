@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE KindSignatures            #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
@@ -142,7 +141,7 @@ cmdAtFromSimple :: Functor (Cmd t) => Cmd t :@ r -> NAry.Cmd (Simple t) NAry.:@ 
 cmdAtFromSimple = NAry.At . SimpleCmd . fmap NAry.FlipRef . unAt
 
 cmdAtToSimple :: Functor (Cmd t) => NAry.Cmd (Simple t) NAry.:@ r -> Cmd t :@ r
-cmdAtToSimple = At . fmap (NAry.unFlipRef) . unSimpleCmd . NAry.unAt
+cmdAtToSimple = At . fmap NAry.unFlipRef . unSimpleCmd . NAry.unAt
 
 cmdMockToSimple :: Functor (Cmd t)
                 => NAry.Cmd (Simple t) (NAry.MockHandle (Simple t)) '[RealHandle t]
@@ -275,7 +274,7 @@ instance ToExpr (MockHandle t)
 fromSimple :: StateMachineTest t -> NAry.StateMachineTest (Simple t) IO
 fromSimple StateMachineTest{..} = NAry.StateMachineTest {
       runMock    = \cmd st -> first respMockFromSimple (runMock (cmdMockToSimple cmd) st)
-    , runReal    = \cmd -> respRealFromSimple <$> (runReal (cmdRealToSimple cmd))
+    , runReal    = \cmd -> respRealFromSimple <$> runReal (cmdRealToSimple cmd)
     , initMock   = initMock
     , newHandles = \r -> Comp (newHandles (unSimpleResp r)) :* Nil
     , generator  = \m     -> fmap cmdAtFromSimple <$> generator (modelToSimple m)

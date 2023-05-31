@@ -63,6 +63,8 @@ module Test.StateMachine.Z
   ) where
 
 import qualified Data.List               as L
+import           Data.Maybe
+                   (fromMaybe)
 import           Prelude                 hiding
                    (elem, notElem)
 import qualified Prelude                 as P
@@ -272,7 +274,7 @@ isBijection r xs ys = isTotalInj r xs :&& isTotalSurj r xs ys
 
 -- | Application.
 (!) :: (Eq a, Show a, Show b) => Fun a b -> a -> b
-f ! x = maybe (error msg) Prelude.id (lookup x f)
+f ! x = fromMaybe (error msg) (lookup x f)
   where
     msg = "!: failed to lookup `" ++ show x ++ "' in `" ++ show f ++ "'"
 

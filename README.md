@@ -309,6 +309,8 @@ ParallelCommands
 └──────────────────────────────────────────────┘ │
 
 AnnotateC "Read" (PredicateC (1 :/= 2))
+
+However, some repetitions of this sequence of commands passed. Maybe there is a race condition?
 ```
 
 As we can see above, a mutable reference is first created, and then in
@@ -434,6 +436,32 @@ multiple times for the same test case expecting that the scheduling of events
 varies between runs. One can further increase entropy by introducing random
 `threadDelay`s in the semantic function.
 
+#### Why is a parallel property failing?
+
+Unless in presence of more severe bugs, parallel properties can fail because of
+mainly two reasons: a race condition is happening or a logic bug is present in
+the code. Taking advantage of the fact that we are repeating multiple times each
+sequence of commands, we can have some insight on which one of those cases seems
+to be the cause.
+
+The parallel counterexample will show one of the following messages:
+
+- `However, some repetitions of this sequence of commands passed. Maybe there is
+  a race condition?`: In this case as some parallel executions of a given
+  sequence of commands have passed, it seems that the test outcome is being
+  affected by a race condition or a non-deterministic error. This message is
+  accurate in the sense that a logic bug will not result in some repetitions
+  succeeding.
+- `And all repetitions of this sequence of commands failed. Maybe there is a
+  logic bug? Try with more repetitions to be sure that it happens consistently`:
+  In this case, one of two things can happen. Either there is a logic bug that
+  is triggered always (which is what the message suggest) or we were just super
+  unlucky (or super lucky, as we found an error) in this run and a race
+  condition manifested in all runs. In order to rule out this last case, one can
+  run the tests with more repetitions, which if the problem is that there is
+  indeed a race condition, should result in the other message being printed
+  instead.
+
 #### SUT initialization
 
 Some tests might require an environment that is used by the SUT to perform its
@@ -446,7 +474,7 @@ defining the state machine inside a monadic action and use the
 
 ``` haskell
 
-semantics :: Env -> Command Concrete -> m Response Concrete
+semantics :: Env -> Command Concrete -> m (Response Concrete)
 semantics = ...
 
 sm :: m (StateMachine Model Command m Response)
@@ -526,7 +554,7 @@ Here are some more examples to get you started:
     has no meaningful semantics, we merely model-check. It might be helpful to
     compare the solution to the
     Hedgehog
-    [solution](http://clrnd.com.ar/posts/2017-04-21-the-water-jug-problem-in-hedgehog.html) and
+    [solution](https://clrnd.com.ar/posts/2017-04-21-the-water-jug-problem-in-hedgehog.html) and
     the
     TLA+
     [solution](https://github.com/tlaplus/Examples/blob/master/specifications/DieHard/DieHard.tla);
@@ -548,7 +576,7 @@ Here are some more examples to get you started:
     -- another example that shows how the sequential property can find help find
     different kind of bugs. This example is borrowed from the paper *Testing the
     Hard Stuff and Staying Sane*
-    [[PDF](http://publications.lib.chalmers.se/records/fulltext/232550/local_232550.pdf),
+    [[PDF](https://publications.lib.chalmers.se/records/fulltext/232550/local_232550.pdf),
     [video](https://www.youtube.com/watch?v=zi0rHwfiX1Q)]. For a more direct
     translation from the paper, see the following
     [variant](https://github.com/polux/qsm-ffi-demo) which uses the C FFI;
@@ -558,7 +586,7 @@ Here are some more examples to get you started:
     -- an imperative implementation of the union-find algorithm. It could be
     useful to compare the solution to the one that appears in the paper *Testing
     Monadic Code with QuickCheck*
-    [[PS](http://www.cse.chalmers.se/~rjmh/Papers/QuickCheckST.ps)], which the
+    [[PS](https://www.cse.chalmers.se/~rjmh/Papers/QuickCheckST.ps)], which the
     [`Test.QuickCheck.Monadic`](https://hackage.haskell.org/package/QuickCheck/docs/Test-QuickCheck-Monadic.html)
     module is based on;
 
@@ -571,7 +599,7 @@ Here are some more examples to get you started:
     *Testing a Database for Race Conditions with QuickCheck* and *Testing the
     Hard Stuff and Staying
     Sane*
-    [[PDF](http://publications.lib.chalmers.se/records/fulltext/232550/local_232550.pdf),
+    [[PDF](https://publications.lib.chalmers.se/records/fulltext/232550/local_232550.pdf),
     [video](https://www.youtube.com/watch?v=zi0rHwfiX1Q)] papers;
 
   * CRUD webserver where create returns unique
@@ -603,7 +631,7 @@ Here are some more examples to get you started:
     [video](https://www.youtube.com/watch?v=w2fin2V83e8)] papers.
 
 All properties from the examples can be found in the
-[`Spec`](https://github.com/stevana/quickcheck-state-machine/tree/master/test/Spec.hs)
+[`Spec`](https://github.com/stevana/quickcheck-state-machine/blob/master/test/Spec.hs)
 module located in the
 [`test`](https://github.com/stevana/quickcheck-state-machine/tree/master/test)
 directory.
@@ -620,7 +648,7 @@ More examples from the "real world":
   * IOHK are using a state machine models in several
     [places](https://github.com/search?l=Haskell&q=org%3Ainput-output-hk+Test.StateMachine&type=Code).
     For example
-    [here](https://github.com/input-output-hk/ouroboros-network/blob/master/ouroboros-consensus-test/test-storage/Test/Ouroboros/Storage/FS/StateMachine.hs)
+    [here](https://github.com/input-output-hk/fs-sim/blob/main/fs-sim/test/Test/System/FS/StateMachine.hs)
     is a test of a mock file system that they in turn use to simulate file
     system errors when testing a blockchain database. The following blog
     [post](http://www.well-typed.com/blog/2019/01/qsm-in-depth/) describes their
@@ -650,14 +678,14 @@ we can improve it on the issue tracker!
     QuickCheck started;
 
   * John Hughes' Midlands Graduate School 2019
-    [course](http://www.cse.chalmers.se/~rjmh/MGS2019/) on property-based
+    [course](https://www.cse.chalmers.se/~rjmh/MGS2019/) on property-based
     testing, which covers the basics of state machine modelling and testing. It
     also contains a minimal implementation of a state machine testing library
     built on top of Haskell's QuickCheck;
 
   * *Finding Race Conditions in Erlang with QuickCheck and
     PULSE*
-    [[PDF](http://www.cse.chalmers.se/~nicsma/papers/finding-race-conditions.pdf),
+    [[PDF](https://www.cse.chalmers.se/~nicsma/papers/finding-race-conditions.pdf),
     [video](https://vimeo.com/6638041)] -- this is the first paper to describe
     how Erlang's QuickCheck works (including the parallel testing);
 
@@ -713,7 +741,7 @@ we can improve it on the issue tracker!
             status report of the hypervisor that Microsoft Research are
             developing using Event-B.
 
-      - [Abstract State Machines](http://www.di.unipi.it/~boerger/AsmBook/): A
+      - [Abstract State Machines](http://groups.di.unipi.it/~boerger/AsmBook/): A
         Method for High-Level System Design and Analysis.
 
     The books contain general advice how to model systems using state machines,
@@ -735,7 +763,7 @@ we can improve it on the issue tracker!
         property based testing library to have support for state machines
         (closed source);
 
-      - The Erlang library [PropEr](https://github.com/manopapad/proper) is
+      - The Erlang library [PropEr](https://github.com/proper-testing/proper) is
         *eqc*-inspired, open source, and has support for state
         machine [testing](http://propertesting.com/);
 
@@ -743,10 +771,10 @@ we can improve it on the issue tracker!
         library [Hedgehog](https://github.com/hedgehogqa/haskell-hedgehog), also
         has support for state machine based testing;
 
-      - [ScalaCheck](http://www.scalacheck.org/), likewise has support for state
+      - [ScalaCheck](https://scalacheck.org/), likewise has support for state
         machine
         based
-        [testing](https://github.com/rickynils/scalacheck/blob/master/doc/UserGuide.md#stateful-testing) (no
+        [testing](https://github.com/typelevel/scalacheck/blob/master/doc/UserGuide.md) (no
         parallel property);
 
       - The Python

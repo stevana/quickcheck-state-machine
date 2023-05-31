@@ -71,17 +71,17 @@ printDotGraph GraphOptions{..} (Rose pref sfx) = do
             in (p, n, e)
         nodes = concatMap (\(_,n,_) -> n) nodesAndEdges
         edges = concatMap (\(_,_,e) -> e) nodesAndEdges
-        firstOfEachPid = (\(p, n, _) -> (p, fmap fst $ uncons n)) <$> nodesAndEdges
+        firstOfEachPid = (\(p, n, _) -> (p, fst <$> uncons n)) <$> nodesAndEdges
 
         -- create barrier edges
 
-        edgesFromBarrier = concat $ (\(p, mn) -> case mn of
+        edgesFromBarrier = concatMap (\(p, mn) -> case mn of
                             Nothing -> []
                             Just n -> [DotEdge {
                                       fromNode = nodeID barrierNode
                                     , toNode = nodeID n
                                     , edgeAttributes = [TailPort (LabelledPort (PN {portName = pack $ show p}) Nothing)]
-                                    }]) <$> firstOfEachPid
+                                    }]) firstOfEachPid
         prefixToBarrier = case prefixNodes of
             [] -> []
             _  -> [DotEdge {
@@ -118,11 +118,11 @@ printDotGraph GraphOptions{..} (Rose pref sfx) = do
 toDotNode :: String -> (Int, (String,String)) -> DotNode String
 toDotNode nodeIdGroup (n, (invocation, resp)) =
     DotNode {
-          nodeID = (nodeIdGroup ++ "-" ++ show n)
+          nodeID = nodeIdGroup ++ "-" ++ show n
         , nodeAttributes = [Label $ StrLabel $ pack $
-                (newLinesAfter "\\l" 60 invocation)
+                newLinesAfter "\\l" 60 invocation
                 ++ "\\n"
-                ++ (newLinesAfter "\\r" 60 resp)]
+                ++ newLinesAfter "\\r" 60 resp]
     }
 
 byTwoUnsafe :: String -> [a] -> [(a,a)]
