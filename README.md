@@ -309,6 +309,8 @@ ParallelCommands
 └──────────────────────────────────────────────┘ │
 
 AnnotateC "Read" (PredicateC (1 :/= 2))
+
+However, some repetitions of this sequence of commands passed. Maybe there is a race condition?
 ```
 
 As we can see above, a mutable reference is first created, and then in
@@ -433,6 +435,32 @@ actually executed several times by default, i.e. steps 2 to 7 will be executed
 multiple times for the same test case expecting that the scheduling of events
 varies between runs. One can further increase entropy by introducing random
 `threadDelay`s in the semantic function.
+
+#### Why is a parallel property failing?
+
+Unless in presence of more severe bugs, parallel properties can fail because of
+mainly two reasons: a race condition is happening or a logic bug is present in
+the code. Taking advantage of the fact that we are repeating multiple times each
+sequence of commands, we can have some insight on which one of those cases seems
+to be the cause.
+
+The parallel counterexample will show one of the following messages:
+
+- `However, some repetitions of this sequence of commands passed. Maybe there is
+  a race condition?`: In this case as some parallel executions of a given
+  sequence of commands have passed, it seems that the test outcome is being
+  affected by a race condition or a non-deterministic error. This message is
+  accurate in the sense that a logic bug will not result in some repetitions
+  succeeding.
+- `And all repetitions of this sequence of commands failed. Maybe there is a
+  logic bug? Try with more repetitions to be sure that it happens consistently`:
+  In this case, one of two things can happen. Either there is a logic bug that
+  is triggered always (which is what the message suggest) or we were just super
+  unlucky (or super lucky, as we found an error) in this run and a race
+  condition manifested in all runs. In order to rule out this last case, one can
+  run the tests with more repetitions, which if the problem is that there is
+  indeed a race condition, should result in the other message being printed
+  instead.
 
 #### SUT initialization
 

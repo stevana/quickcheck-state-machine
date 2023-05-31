@@ -1,3 +1,12 @@
+#### 0.7.3 (???)
+
+  * Fix compatibility with GHC 9.6 (PR #20, thanks @erikd);
+
+  * Fix printing of boxed diagrams of parallel properties (PR #21);
+
+  * Parallel properties will now show a message indicating what looks like it
+    could be the cause of the property failing (PR #21).
+
 #### 0.7.2 (2023-4-20)
 
   * Fix compatibility with GHC 9.0 and 9.2 (PR #7, thanks @edsko);
