@@ -1,4 +1,4 @@
-#### 0.7.3 (???)
+#### 0.7.3 (2023-6-1)
 
   * Fix compatibility with GHC 9.6 (PR #20, thanks @erikd);
 
