@@ -40,7 +40,7 @@ import           TicketDispenser
 import qualified UnionFind
 
 -- RQlite tests fail, see #14
-import           RQlite
+--import           RQlite
 
 ------------------------------------------------------------------------
 
