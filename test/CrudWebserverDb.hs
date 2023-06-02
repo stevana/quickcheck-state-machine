@@ -65,7 +65,9 @@ module CrudWebserverDb
 import           Control.Concurrent
                    (newEmptyMVar, putMVar, takeMVar, threadDelay)
 import           Control.Exception
-                   (IOException, bracket, catch, onException)
+                   (IOException, bracket, catch, onException, throwIO)
+import           Control.Monad
+                   (unless)
 import           Control.Monad.Logger
                    (NoLoggingT, runNoLoggingT)
 import           Control.Monad.Reader
@@ -118,8 +120,10 @@ import           Servant.Client
                    client, mkClientEnv, runClientM)
 import           Servant.Server
                    (Handler)
+import           System.Exit
+                   (ExitCode(..))
 import           System.Process
-                   (callProcess, readProcess)
+                   (callProcess, readProcessWithExitCode, readProcess)
 import           Test.QuickCheck
                    (Arbitrary, Gen, Property, arbitrary, elements,
                    expectFailure, frequency, ioProperty, listOf,
@@ -479,7 +483,7 @@ setupDb = do
     [ "run"
     , "-d"
     , "-e", "POSTGRES_PASSWORD=mysecretpassword"
-    , "postgres:10.2"
+    , "postgres:15.3"
     ] ""
   ip <- trim <$> readProcess "docker"
     [ "inspect"
@@ -509,15 +513,15 @@ setupDb = do
                 }
           addr : _ <- getAddrInfo (Just hints) (Just ip) (Just "5432")
           sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
-          (connect sock (addrAddress addr) >>
-            readProcess "docker"
-              [ "exec"
-              , "-u", "postgres"
-              , pid
-              , "psql", "-U", "postgres", "-d", "postgres", "-c", "SELECT 1 + 1"
-              ] "" >> return sock)
-            `catch` (\(_ :: IOException) -> do
-                        threadDelay 1000000
+          (do
+              connect sock (addrAddress addr)
+              (e, _, _) <- readProcessWithExitCode "docker" ["exec", pid, "pg_isready" ] ""
+              unless (e == ExitSuccess) $ throwIO $ userError "pg is not ready"
+              return sock
+            )
+            `catch` (\(e :: IOException) -> do
+                        print e
+                        threadDelay 2000000
                         go (n - 1))
 
 

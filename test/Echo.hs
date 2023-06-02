@@ -36,7 +36,7 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
                    (monadicIO)
 import           UnliftIO
-                   (TVar, atomically, liftIO, newTVarIO, readTVar,
+                   (TVar, atomically, newTVarIO, readTVar,
                    writeTVar)
 
 import           Test.StateMachine

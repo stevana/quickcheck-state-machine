@@ -141,14 +141,14 @@ ioKill :: Pid -> IO ()
 ioKill pid =
   IORef.modifyIORef killedPidsRef (pid :)
 
-reverseLookup :: (Eq k, Eq v, Hashable k, Hashable v)
+reverseLookup :: (Hashable k, Hashable v)
               => HashTable.CuckooHashTable k v -> v -> IO (Maybe k)
 reverseLookup tbl val = do
   lbt <- swapTable tbl
   HashTable.lookup lbt val
   where
     -- Swap the keys and values in a hashtable.
-    swapTable :: (Eq k, Eq v, Hashable k, Hashable v)
+    swapTable :: (Hashable k, Hashable v)
               => HashTable.CuckooHashTable k v -> IO (HashTable.CuckooHashTable v k)
     swapTable t = HashTable.fromList =<< fmap (map swap) (HashTable.toList t)
 

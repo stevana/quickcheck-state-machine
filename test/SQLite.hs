@@ -52,6 +52,7 @@ import           GHC.Generics
                    (Generic, Generic1)
 import           Prelude
 import           System.Directory
+import           System.IO
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
 import           Test.StateMachine
@@ -131,6 +132,18 @@ data Event r = Event
   , eventAfter    :: Model  r
   , eventMockResp :: Resp Int Int
   }
+
+TH.deriveBifunctor     ''Success
+TH.deriveBifoldable    ''Success
+TH.deriveBitraversable ''Success
+
+TH.deriveBifunctor     ''Resp
+TH.deriveBifoldable    ''Resp
+TH.deriveBitraversable ''Resp
+
+TH.deriveBifunctor     ''Cmd
+TH.deriveBifoldable    ''Cmd
+TH.deriveBitraversable ''Cmd
 
 lockstep :: forall  r. (Show1 r, Ord1 r)
          => Model   r
@@ -443,13 +456,12 @@ data AsyncWithPool r = AsyncWithPool {
 mkAsyncWithPool :: AsyncQueue r -> Pool r -> AsyncWithPool r
 mkAsyncWithPool = AsyncWithPool
 
-createSqliteAsyncQueue :: (MonadLogger m, MonadUnliftIO m)
+createSqliteAsyncQueue :: MonadUnliftIO m
                        => Text -> m (AsyncQueue SqlBackend)
 createSqliteAsyncQueue str = do
-    logFunc <- askLogFunc
-    liftIO $ asyncQueueBound 1000 $ open' str logFunc
+    liftIO $ asyncQueueBound 1000 $ open' str (defaultOutput stderr)
 
-createSqliteAsyncPool :: (MonadLogger m, MonadUnliftIO m)
+createSqliteAsyncPool :: (MonadUnliftIO m, MonadLoggerIO m)
     => Text -> Int -> m (AsyncWithPool SqlBackend)
 createSqliteAsyncPool str n = do
     q <- createSqliteAsyncQueue str
@@ -478,15 +490,3 @@ runSqlAsyncQueue r q = withRunInIO $ \run' ->
 
 closeSqlAsyncQueue :: AsyncQueue SqlBackend -> IO ()
 closeSqlAsyncQueue q = waitQueue q close'
-
-TH.deriveBifunctor     ''Success
-TH.deriveBifoldable    ''Success
-TH.deriveBitraversable ''Success
-
-TH.deriveBifunctor     ''Resp
-TH.deriveBitraversable ''Resp
-TH.deriveBifoldable    ''Resp
-
-TH.deriveBifunctor     ''Cmd
-TH.deriveBifoldable    ''Cmd
-TH.deriveBitraversable ''Cmd

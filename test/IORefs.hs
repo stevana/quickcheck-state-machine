@@ -135,8 +135,8 @@ ioRefTest = StateMachineTest {
     , generator  = IORefs.generator
     , shrinker   = \_ _ -> []
     , newHandles = toList
-    , runMock    = IORefs.runMock 0 (+1)
-    , runReal    = IORefs.runReal 0 (+1)
+    , runMock    = IORefs.runMock 0 (+ 1)
+    , runReal    = IORefs.runReal 0 (+ 1)
     , cleanup    = \_ -> return ()
     , tag        = tagCmds
     }

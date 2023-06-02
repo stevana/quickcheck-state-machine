@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds                     #-}
 {-# LANGUAGE DerivingStrategies            #-}
 {-# LANGUAGE GADTs                         #-}
 {-# LANGUAGE ScopedTypeVariables           #-}
@@ -29,7 +30,7 @@ import           Database.Persist.TH
 import           Prelude
 import           Test.QuickCheck
 
-share [mkPersist sqlSettings, mkSave "entityDefs"] [persistLowerCase|
+share [mkPersist sqlSettings, mkEntityDefList "entityDefs"] [persistLowerCase|
 Person
     name String
     age Int
@@ -49,7 +50,7 @@ Car
 
 instance Arbitrary Person where
     arbitrary = Person <$> elements names
-                       <*> suchThat arbitrary (>0)
+                       <*> suchThat arbitrary (> 0)
 
 instance Arbitrary Car where
     arbitrary = Car <$> arbitrary

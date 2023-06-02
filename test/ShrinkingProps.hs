@@ -195,7 +195,7 @@ newIOVar :: CmdID -> Int -> STM IOVar
 newIOVar cid n = IOVar (show (cid, n)) <$> newTVar 0
 
 incrIOVar :: IOVar -> STM ()
-incrIOVar (IOVar _ x) = modifyTVar x (+1)
+incrIOVar (IOVar _ x) = modifyTVar x (+ 1)
 
 readIOVar :: IOVar -> STM Int
 readIOVar (IOVar _ x) = readTVar x
@@ -415,7 +415,7 @@ refGraph (QSM.Commands cmds) = go Map.empty Map.empty cmds
        -> [QSM.Command (At Cmd) (At Resp)]
        -> RefGraph
     go _    !acc []                                     = acc
-    go refs !acc (QSM.Command (At cmd) _resp vars : cs) =
+    go refs acc (QSM.Command (At cmd) _resp vars : cs) =
         go (refs `union` newRefs)
            (Map.insert (cmdID cmd) (Set.fromList $ map deref (toList cmd)) acc)
            cs

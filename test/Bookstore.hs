@@ -17,6 +17,8 @@ module Bookstore
 
 import           Control.Concurrent
                    (threadDelay)
+import           Control.Monad
+                   (unless)
 import           Control.Monad.Reader
                    (ReaderT, ask, runReaderT)
 import           Data.Int
@@ -44,8 +46,10 @@ import           Network.Socket                     as Sock
                    addrFlags, addrProtocol, addrSocketType, close,
                    connect, defaultHints, getAddrInfo, socket)
 import           Prelude
+import           System.Exit
+                   (ExitCode(..))
 import           System.Process
-                   (callProcess, readProcess)
+                   (callProcess, readProcess, readProcessWithExitCode)
 import           Test.QuickCheck
                    (Arbitrary(arbitrary), Gen, Property,
                    arbitraryPrintableChar, choose, elements, frequency,
@@ -142,13 +146,13 @@ select prepStmt param cn = query cn prepStmt [param]
 findByAuthor, findByTitle
   :: Bug -> String -> Connection -> IO (Maybe [Book])
 findByAuthor bug s = case bug of
-  Injection -> handleViolations (select templ $ "%"++s++"%")
-  _          -> handleViolations (select templ $ "%"++(sanitize s)++"%")
+  Injection -> handleViolations (select templ $ "%" ++ s ++ "%")
+  _          -> handleViolations (select templ $ "%" ++ sanitize s ++ "%")
   where templ = "SELECT * FROM books WHERE author LIKE ?"
 
 findByTitle bug s = case bug of
-  Injection -> handleViolations (select templ $ "%"++s++"%")
-  _          -> handleViolations (select templ $ "%"++(sanitize s)++"%")
+  Injection -> handleViolations (select templ $ "%" ++ s ++ "%")
+  _          -> handleViolations (select templ $ "%" ++ sanitize s ++ "%")
   where templ = "SELECT * FROM books WHERE title LIKE ?"
 
 findByIsbn :: String -> Connection -> IO (Maybe [Book])
@@ -438,7 +442,7 @@ setup = do
     [ "run"
     , "-d"
     , "-e", "POSTGRES_PASSWORD=mysecretpassword"
-    , "postgres:10.2"
+    , "postgres:15.3"
     ] ""
   ip <- trim <$> readProcess "docker"
     [ "inspect"
@@ -468,15 +472,14 @@ setup = do
                 }
           addr : _ <- getAddrInfo (Just hints) (Just ip) (Just "5432")
           sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
-          (Sock.connect sock (addrAddress addr) >>
-            readProcess "docker"
-              [ "exec"
-              , "-u", "postgres"
-              , pid
-              , "psql", "-U", "postgres", "-d", "postgres", "-c", "SELECT 1 + 1"
-              ] "" >> return sock)
+          (do
+              Sock.connect sock (addrAddress addr)
+              (e, _, _) <- readProcessWithExitCode "docker" ["exec", pid, "pg_isready" ] ""
+              unless (e == ExitSuccess) $ throwIO $ userError "pg is not ready"
+              return sock
+            )
             `catch` (\(_ :: IOException) -> do
-                        threadDelay 1000000
+                        threadDelay 2000000
                         go (n - 1))
 
 cleanup :: (String, String) -> IO ()
