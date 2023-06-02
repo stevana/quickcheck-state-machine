@@ -6,8 +6,10 @@ dist-newstyle/
 dist/
 .ghc.environment.*
 stack.yaml.lock
+cabal.project.local
 *~
 *.swp
+TAGS
 
 cleanup-test-folder/
 sqlite-seq/
