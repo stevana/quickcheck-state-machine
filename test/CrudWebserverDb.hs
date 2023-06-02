@@ -113,8 +113,8 @@ import           Network.Socket
 import qualified Network.Wai.Handler.Warp      as Warp
 import           Prelude
 import           Servant
-                   ((:<|>)(..), (:>), Application, Capture, Delete,
-                   Get, JSON, Post, Put, ReqBody, Server, serve)
+                   (Application, Capture, Delete, Get, JSON, Post, Put,
+                   ReqBody, Server, serve, (:<|>)(..), (:>))
 import           Servant.Client
                    (BaseUrl(..), ClientEnv(..), ClientM, Scheme(Http),
                    client, mkClientEnv, runClientM)
@@ -123,7 +123,7 @@ import           Servant.Server
 import           System.Exit
                    (ExitCode(..))
 import           System.Process
-                   (callProcess, readProcessWithExitCode, readProcess)
+                   (callProcess, readProcess, readProcessWithExitCode)
 import           Test.QuickCheck
                    (Arbitrary, Gen, Property, arbitrary, elements,
                    expectFailure, frequency, ioProperty, listOf,

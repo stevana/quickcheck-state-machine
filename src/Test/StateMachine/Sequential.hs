@@ -56,11 +56,12 @@ module Test.StateMachine.Sequential
   where
 
 import           Control.Exception
-                   (SomeException, SomeAsyncException (..), displayException,
-                   fromException)
-import           Control.Monad (when)
+                   (SomeAsyncException(..), SomeException,
+                   displayException, fromException)
+import           Control.Monad
+                   (when)
 import           Control.Monad.Catch
-                   (MonadCatch(..), MonadMask (..), catch, ExitCase (..))
+                   (ExitCase(..), MonadCatch(..), MonadMask(..), catch)
 import           Control.Monad.State.Strict
                    (StateT, evalStateT, get, lift, put, runStateT)
 import           Data.Bifunctor
@@ -81,10 +82,16 @@ import           Data.Proxy
                    (Proxy(..))
 import qualified Data.Set                          as S
 import           Data.Time
-                    (defaultTimeLocale, formatTime, getZonedTime)
+                   (defaultTimeLocale, formatTime, getZonedTime)
 import           Data.TreeDiff
                    (ToExpr, ansiBgEditExprCompact, ediff)
 import           Prelude
+import           Prettyprinter
+                   (Doc)
+import qualified Prettyprinter                     as PP
+import           Prettyprinter.Render.Terminal
+                   (AnsiStyle)
+import qualified Prettyprinter.Render.Text         as PP
 import           System.Directory
                    (createDirectoryIfMissing)
 import           System.FilePath
@@ -100,18 +107,13 @@ import           Test.QuickCheck.Monadic
                    (PropertyM, run)
 import           Test.QuickCheck.Random
                    (mkQCGen)
-import           Prettyprinter
-                   (Doc)
-import qualified Prettyprinter      as PP
-import qualified Prettyprinter.Render.Text as PP
-import           Prettyprinter.Render.Terminal
-                   (AnsiStyle)
 import           Text.Show.Pretty
                    (ppShow)
 import           UnliftIO
                    (MonadIO, TChan, atomically, liftIO, newTChanIO,
                    tryReadTChan, writeTChan)
-import           UnliftIO.Exception (throwIO)
+import           UnliftIO.Exception
+                   (throwIO)
 
 import           Test.StateMachine.ConstructorName
 import           Test.StateMachine.Labelling

@@ -53,18 +53,18 @@ import           Data.Either
                    (partitionEithers)
 import           Data.List
                    (genericLength)
-import qualified Data.Set                           as Set
 import           Data.Map
                    (Map)
 import qualified Data.Map                           as Map
 import           Data.Matrix
-                   (Matrix, elementwise, fromLists, matrix, ncols,
-                   nrows, submatrix, toLists, zero, getElem)
+                   (Matrix, elementwise, fromLists, getElem, matrix,
+                   ncols, nrows, submatrix, toLists, zero)
 import           Data.Maybe
                    (fromMaybe)
+import qualified Data.Set                           as Set
 import           Generic.Data
                    (FiniteEnum, GBounded, GEnum, gfiniteEnumFromTo,
-                   gmaxBound, gminBound, gtoFiniteEnum, gfromFiniteEnum)
+                   gfromFiniteEnum, gmaxBound, gminBound, gtoFiniteEnum)
 import           GHC.Generics
                    (Generic, Rep)
 import           Prelude                            hiding
@@ -83,8 +83,8 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
                    (PropertyM, run)
 import           Test.QuickCheck.Property
-                   (Callback(PostTest),
-                   CallbackKind(NotCounterexample), callback)
+                   (Callback(PostTest), CallbackKind(NotCounterexample),
+                   callback)
 import           Text.Read
                    (readMaybe)
 

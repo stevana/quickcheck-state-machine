@@ -61,8 +61,8 @@ import           GHC.Generics
 import           Prelude
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
-import           Test.StateMachine
-                   hiding (showLabelledExamples, showLabelledExamples')
+import           Test.StateMachine                    hiding
+                   (showLabelledExamples, showLabelledExamples')
 
 import qualified Data.Monoid                          as M
 import qualified Data.TreeDiff                        as TD

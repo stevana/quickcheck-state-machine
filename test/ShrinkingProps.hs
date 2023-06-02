@@ -70,8 +70,8 @@ import qualified Test.StateMachine.Sequential  as QSM
 import qualified Test.StateMachine.Types       as QSM
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 import           Test.StateMachine.Utils
-                   (Shrunk(..), shrinkListS', shrinkListS',
-                   shrinkListS'', shrinkPairS')
+                   (Shrunk(..), shrinkListS', shrinkListS'',
+                   shrinkPairS')
 
 ------------------------------------------------------------------------
 

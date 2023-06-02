@@ -351,10 +351,10 @@ postconditions (Model m) cmd resp = case cmd of
 transitions :: Model r -> Command r -> Response r -> Model r
 transitions (Model m) cmd _ = Model $ case cmd of
   NewBook New key t a -> (key, Book (getString key) t a 0 0):m
-  AddCopy Exist key -> map (applyForKey key $ incOwned . incAvail) m
-  Borrow  Avail key -> map (applyForKey key decAvail) m
-  Return  Taken key -> map (applyForKey key incAvail) m
-  _ -> m
+  AddCopy Exist key   -> map (applyForKey key $ incOwned . incAvail) m
+  Borrow  Avail key   -> map (applyForKey key decAvail) m
+  Return  Taken key   -> map (applyForKey key incAvail) m
+  _                   -> m
   where
     applyForKey key fn (k, v) = (k, if k == key then fn v else v)
     incOwned row = row { owned = 1 + owned row }

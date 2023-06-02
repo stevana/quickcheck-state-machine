@@ -107,9 +107,9 @@ newtype Resp kp kc = Resp (Either SqliteException (Success kp kc))
     deriving stock (Show, Generic1)
 
 instance (Eq kp, Eq kc) => Eq (Resp kp kc) where
-    (Resp (Left e1)) == (Resp (Left e2)) = seError e1 == seError e2
+    (Resp (Left e1)) == (Resp (Left e2))   = seError e1 == seError e2
     (Resp (Right r1)) == (Resp (Right r2)) = r1 == r2
-    _ == _ = False
+    _ == _                                 = False
 
 getPers :: Resp kp kc -> [kp]
 getPers (Resp (Right (InsertedPerson kp))) = [kp]

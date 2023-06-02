@@ -38,8 +38,8 @@ import           Prelude
 import           System.Random
                    (randomIO, randomRIO)
 import           Test.QuickCheck
-                   (Gen, Property, arbitrary, elements, frequency,
-                   once, shrink, (===))
+                   (Gen, Property, arbitrary, elements, frequency, once,
+                   shrink, (===))
 import           Test.QuickCheck.Monadic
                    (monadicIO)
 
@@ -50,14 +50,14 @@ import           Test.StateMachine.Parallel
                    shrinkNParallelCommands, shrinkParallelCommands)
 import           Test.StateMachine.Sequential
                    (ShouldShrink(..))
+import qualified Test.StateMachine.Types       as Types
 import           Test.StateMachine.Types
                    (Commands(Commands), Reference(..), Symbolic(..),
                    Var(Var))
-import qualified Test.StateMachine.Types       as Types
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 import           Test.StateMachine.Utils
-                   (Shrunk(..), shrinkListS, shrinkListS'',
-                   shrinkPairS, shrinkPairS')
+                   (Shrunk(..), shrinkListS, shrinkListS'', shrinkPairS,
+                   shrinkPairS')
 import           Test.StateMachine.Z
 
 ------------------------------------------------------------------------

@@ -79,7 +79,7 @@ module Test.StateMachine.Parallel
 import           Control.Monad
                    (replicateM, when)
 import           Control.Monad.Catch
-                   (MonadMask(..), ExitCase(..))
+                   (ExitCase(..), MonadMask(..))
 import           Control.Monad.State.Strict
                    (runStateT)
 import           Data.Bifunctor
@@ -87,7 +87,7 @@ import           Data.Bifunctor
 import           Data.Foldable
                    (toList)
 import           Data.List
-                   (find, partition, permutations, foldl')
+                   (find, foldl', partition, permutations)
 import qualified Data.Map.Strict                   as Map
 import           Data.Maybe
                    (fromMaybe, mapMaybe)
@@ -98,22 +98,23 @@ import qualified Data.Set                          as S
 import           Data.Tree
                    (Tree(Node))
 import           Prelude
+import           Prettyprinter
+                   (Doc)
+import qualified Prettyprinter                     as PP
+import           Prettyprinter.Render.Terminal
+                   (AnsiStyle)
+import qualified Prettyprinter.Render.Text         as PP
 import           Test.QuickCheck
                    (Gen, Property, Testable, choose, forAllShrinkShow,
                    property, sized)
 import           Test.QuickCheck.Monadic
                    (PropertyM, run)
-import           Prettyprinter
-                   (Doc)
-import qualified Prettyprinter as PP
-import qualified Prettyprinter.Render.Text as PP
-import           Prettyprinter.Render.Terminal (AnsiStyle)
 import           Text.Show.Pretty
                    (ppShow)
+import qualified UnliftIO                          as UIO
 import           UnliftIO
                    (MonadIO, MonadUnliftIO, concurrently,
                    forConcurrently, newTChanIO)
-import qualified UnliftIO as UIO
 
 import           Test.StateMachine.BoxDrawer
 import           Test.StateMachine.ConstructorName

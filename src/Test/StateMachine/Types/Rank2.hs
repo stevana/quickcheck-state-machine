@@ -25,8 +25,9 @@ import           Data.Kind
                    (Type)
 import qualified Data.Traversable    as Rank1
 import           GHC.Generics
-                   ((:*:)((:*:)), (:+:)(L1, R1), Generic1, K1(K1),
-                   M1(M1), Rec1(Rec1), Rep1, U1(U1), from1, to1, (:.:)(Comp1))
+                   (Generic1, K1(K1), M1(M1), Rec1(Rec1), Rep1, U1(U1),
+                   from1, to1, (:*:)((:*:)), (:+:)(L1, R1),
+                   (:.:)(Comp1))
 import           Prelude             hiding
                    (Applicative(..), Foldable(..), Functor(..),
                    Traversable(..), (<$>))

@@ -36,11 +36,10 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
                    (monadicIO)
 import           UnliftIO
-                   (TVar, atomically, newTVarIO, readTVar,
-                   writeTVar)
+                   (TVar, atomically, newTVarIO, readTVar, writeTVar)
 
 import           Test.StateMachine
-import           Test.StateMachine.Types as QC
+import           Test.StateMachine.Types       as QC
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
 ------------------------------------------------------------------------
