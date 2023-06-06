@@ -98,17 +98,13 @@ import qualified Data.Set                          as S
 import           Data.Tree
                    (Tree(Node))
 import           Prelude
-import           Prettyprinter
-                   (Doc)
-import qualified Prettyprinter                     as PP
-import           Prettyprinter.Render.Terminal
-                   (AnsiStyle)
-import qualified Prettyprinter.Render.Text         as PP
 import           Test.QuickCheck
                    (Gen, Property, Testable, choose, forAllShrinkShow,
                    property, sized)
 import           Test.QuickCheck.Monadic
                    (PropertyM, run)
+import           Text.PrettyPrint.ANSI.Leijen
+                   (Doc)
 import           Text.Show.Pretty
                    (ppShow)
 import qualified UnliftIO                          as UIO
@@ -124,6 +120,8 @@ import           Test.StateMachine.Sequential
 import           Test.StateMachine.Types
 import qualified Test.StateMachine.Types.Rank2     as Rank2
 import           Test.StateMachine.Utils
+import qualified Text.PrettyPrint.ANSI.Leijen as PP
+
 ------------------------------------------------------------------------
 
 forAllParallelCommands :: Testable prop
@@ -521,7 +519,7 @@ runParallelCommands' :: (Show (cmd Concrete), Show (resp Concrete))
                      => m (StateMachine model cmd m resp)
                      -> (cmd Concrete -> resp Concrete)
                      -> ParallelCommands cmd resp
-                     -> PropertyM m [(History cmd resp, model Concrete, Logic)]
+                     -> PropertyM m [(History cmd resp, model Concrete,  Logic)]
 runParallelCommands' = runParallelCommandsNTimes' 10
 
 runNParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
@@ -821,11 +819,11 @@ prettyParallelCommandsWithOpts cmds mGraphOptions histories = do
         PP.putDoc $
           mconcat
            [ PP.line
-           , PP.pretty (show $ toBoxDrawings cmds hist')
-           , PP.pretty (show $ simplify ce)
+           , PP.string (show $ toBoxDrawings cmds hist')
+           , PP.string (show $ simplify ce)
            , PP.line
            , PP.line
-           , PP.pretty $
+           , PP.string $
              if or [ boolean l | (_, _, l) <- histories]
              then "However, some repetitions of this sequence of commands passed. Maybe there is a race condition?"
              else "And all repetitions of this sequence of commands failed. Maybe there is a logic bug? Try with more repetitions to be sure that it happens consistently"
@@ -871,10 +869,10 @@ prettyNParallelCommandsWithOpts cmds mGraphOptions histories =
         PP.putDoc $
           mconcat
            [ PP.line
-           , PP.pretty (show $ simplify ce)
+           , PP.string (show $ simplify ce)
            , PP.line
            , PP.line
-           , PP.pretty $
+           , PP.string $
              if or [ boolean l | (_, _, l) <- histories]
              then "However, some repetitions of this sequence of commands passed. Maybe there is a race condition?"
              else "And all repetitions of this sequence of commands failed. Maybe there is a logic bug? Try with more repetitions to be sure that it happens consistently"
@@ -898,13 +896,13 @@ prettyNParallelCommands cmds = prettyNParallelCommandsWithOpts cmds Nothing
 --   seeing how a race condition might have occured.
 toBoxDrawings :: forall cmd resp. Rank2.Foldable cmd
               => (Show (cmd Concrete), Show (resp Concrete))
-              => ParallelCommands cmd resp -> History cmd resp -> Doc AnsiStyle
+              => ParallelCommands cmd resp -> History cmd resp -> Doc
 toBoxDrawings (ParallelCommands prefix suffixes) = toBoxDrawings'' allVars
   where
     allVars = getAllUsedVars prefix `S.union`
                 foldMap (foldMap getAllUsedVars) suffixes
 
-    toBoxDrawings'' :: Set Var -> History cmd resp -> Doc AnsiStyle
+    toBoxDrawings'' :: Set Var -> History cmd resp -> Doc
     toBoxDrawings'' knownVars (History h) = mconcat
         ([ exec evT (fmap (out  . snd) <$> Fork l p r)
          , PP.line
@@ -942,11 +940,11 @@ toBoxDrawings (ParallelCommands prefix suffixes) = toBoxDrawings'' allVars
         evT :: [(EventType, Pid)]
         evT = toEventType (filter (\e -> fst e `Prelude.elem` map Pid [1, 2]) h)
 
-        ppException :: (Int, String) -> Doc AnsiStyle
+        ppException :: (Int, String) -> Doc
         ppException (idx, err) = mconcat
-         [ PP.pretty $ "Exception " <> show idx <> ":"
+         [ PP.string $ "Exception " <> show idx <> ":"
          , PP.line
-         , PP.indent 2 $ PP.pretty err
+         , PP.indent 2 $ PP.string err
          , PP.line
          , PP.line
          ]
