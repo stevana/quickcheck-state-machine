@@ -13,7 +13,7 @@
 {-# LANGUAGE DeriveGeneric                 #-}
 {-# LANGUAGE RecordWildCards               #-}
 {-# LANGUAGE StandaloneDeriving            #-}
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# LANGUAGE DataKinds #-}
 
 module Schema
     ( Person (..)
@@ -29,7 +29,7 @@ import           Database.Persist.TH
 import           Prelude
 import           Test.QuickCheck
 
-share [mkPersist sqlSettings, mkSave "entityDefs"] [persistLowerCase|
+share [mkPersist sqlSettings, mkEntityDefList "entityDefs"] [persistLowerCase|
 Person
     name String
     age Int

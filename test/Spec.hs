@@ -31,16 +31,13 @@ import           IORefs
 import           MemoryReference
 import           Mock
 import           Overflow
-import           ProcessRegistry
+-- import           ProcessRegistry
 import qualified ShrinkingProps
 import           SQLite
-import           Test.StateMachine.Markov
-                   (PropertyName, StatsDb, fileStatsDb)
 import           TicketDispenser
 import qualified UnionFind
 
 -- RQlite tests fail, see #14
-import           RQlite
 
 ------------------------------------------------------------------------
 
@@ -196,9 +193,10 @@ tests docker0 = testGroup "Tests"
       , testProperty "2-Parallel" (prop_echoNParallelOK 2)
       , testProperty "3-Parallel" (prop_echoNParallelOK 3)
       ]
-  , testGroup "ProcessRegistry"
-      [ testProperty "Sequential" (prop_processRegistry (statsDb "processRegistry"))
-      ]
+  -- XXX: The generator function needs to be reimplemented.
+  -- , testGroup "ProcessRegistry"
+  --     [ testProperty "Sequential" prop_processRegistry
+  --     ]
   , testGroup "UnionFind"
       [ testProperty "Sequential" UnionFind.prop_unionFindSequential ]
   , testGroup "Lockstep"
@@ -206,9 +204,6 @@ tests docker0 = testGroup "Tests"
       ]
   ]
   where
-    statsDb :: PropertyName -> StatsDb IO
-    statsDb = fileStatsDb "/tmp/stats-db"
-
     webServer docker bug port test prop
       | docker    = withResource (WS.setup bug WS.connectionString port) WS.cleanup
                      (const (testProperty test (prop port)))

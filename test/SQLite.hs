@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass            #-}
+{-# LANGUAGE DeriveFunctor             #-}
 {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE DerivingStrategies        #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -16,8 +17,7 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
 {-# LANGUAGE UndecidableInstances      #-}
-{-# OPTIONS_GHC -fno-warn-orphans    #-}
-{-# OPTIONS_GHC -fno-warn-identities #-}
+{-# OPTIONS_GHC -fno-warn-orphans      #-}
 
 module SQLite
     ( prop_sequential_sqlite
@@ -27,6 +27,7 @@ module SQLite
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Exception
+import           Control.Monad
 import           Control.Monad.IO.Unlift
                    (MonadUnliftIO, withRunInIO)
 import           Control.Monad.Logger
@@ -63,16 +64,6 @@ import           Schema
 
 ------------------------------------------------------------------------
 
-newtype At t r = At {unAt :: t (PRef r) (CRef r)}
-  deriving stock (Generic)
-
-type PRef = Reference (Key Person)
-type CRef = Reference (Key Car)
-
-deriving stock instance Show1 r => Show (At Resp r)
-deriving stock instance Show1 r => Show (At Cmd r)
-deriving stock instance Eq1   r => Eq   (At Resp r)
-
 data TableEntity
   = TPerson Person
   | TCar Car
@@ -84,7 +75,44 @@ data Tag = SPerson | SCar
 data Cmd kp kh =
       Insert TableEntity
     | SelectList Tag
-    deriving stock (Show, Generic1)
+    deriving stock (Show, Generic1, Functor)
+
+TH.deriveBifunctor     ''Cmd
+TH.deriveBifoldable    ''Cmd
+TH.deriveBitraversable ''Cmd
+
+data Success kp kc =
+    Unit ()
+  | InsertedPerson kp
+  | InsertedCar kc
+  | List [TableEntity]
+  deriving stock (Show, Eq, Generic1, Functor)
+
+TH.deriveBifunctor     ''Success
+TH.deriveBifoldable    ''Success
+TH.deriveBitraversable ''Success
+
+newtype Resp kp kc = Resp (Either SqliteException (Success kp kc))
+    deriving stock (Show, Generic1, Functor)
+
+instance (Eq kp, Eq kc) => Eq (Resp kp kc) where
+    (Resp (Left e1)) == (Resp (Left e2))   = seError e1 == seError e2
+    (Resp (Right r1)) == (Resp (Right r2)) = r1 == r2
+    _ == _                                 = False
+
+TH.deriveBifunctor     ''Resp
+TH.deriveBifoldable    ''Resp
+TH.deriveBitraversable ''Resp
+
+newtype At t r = At {unAt :: t (PRef r) (CRef r)}
+  deriving stock (Generic)
+
+type PRef = Reference (Key Person)
+type CRef = Reference (Key Car)
+
+deriving stock instance Show1 r => Show (At Resp r)
+deriving stock instance Show1 r => Show (At Cmd r)
+deriving stock instance Eq1   r => Eq   (At Resp r)
 
 data Model (r :: Type -> Type) = Model
     { dbModel     :: DBModel
@@ -102,14 +130,6 @@ data DBModel = DBModel {
 initModelImpl :: Model r
 initModelImpl = Model (DBModel [] 0 [] 0) [] []
 
-newtype Resp kp kc = Resp (Either SqliteException (Success kp kc))
-    deriving stock (Show, Generic1)
-
-instance (Eq kp, Eq kc) => Eq (Resp kp kc) where
-    (Resp (Left e1)) == (Resp (Left e2)) = seError e1 == seError e2
-    (Resp (Right r1)) == (Resp (Right r2)) = r1 == r2
-    _ == _ = False
-
 getPers :: Resp kp kc -> [kp]
 getPers (Resp (Right (InsertedPerson kp))) = [kp]
 getPers _                                  = []
@@ -117,13 +137,6 @@ getPers _                                  = []
 getCars :: Resp kp kc -> [kc]
 getCars (Resp (Right (InsertedCar kc))) = [kc]
 getCars _                               = []
-
-data Success kp kc =
-    Unit ()
-  | InsertedPerson kp
-  | InsertedCar kc
-  | List [TableEntity]
-  deriving stock (Show, Eq, Generic1)
 
 data Event r = Event
   { eventBefore   :: Model  r
@@ -443,13 +456,13 @@ data AsyncWithPool r = AsyncWithPool {
 mkAsyncWithPool :: AsyncQueue r -> Pool r -> AsyncWithPool r
 mkAsyncWithPool = AsyncWithPool
 
-createSqliteAsyncQueue :: (MonadLogger m, MonadUnliftIO m)
+createSqliteAsyncQueue :: (MonadLoggerIO m, MonadUnliftIO m)
                        => Text -> m (AsyncQueue SqlBackend)
 createSqliteAsyncQueue str = do
-    logFunc <- askLogFunc
+    logFunc <- askLoggerIO
     liftIO $ asyncQueueBound 1000 $ open' str logFunc
 
-createSqliteAsyncPool :: (MonadLogger m, MonadUnliftIO m)
+createSqliteAsyncPool :: (MonadLoggerIO m, MonadUnliftIO m)
     => Text -> Int -> m (AsyncWithPool SqlBackend)
 createSqliteAsyncPool str n = do
     q <- createSqliteAsyncQueue str
@@ -478,15 +491,3 @@ runSqlAsyncQueue r q = withRunInIO $ \run' ->
 
 closeSqlAsyncQueue :: AsyncQueue SqlBackend -> IO ()
 closeSqlAsyncQueue q = waitQueue q close'
-
-TH.deriveBifunctor     ''Success
-TH.deriveBifoldable    ''Success
-TH.deriveBitraversable ''Success
-
-TH.deriveBifunctor     ''Resp
-TH.deriveBitraversable ''Resp
-TH.deriveBifoldable    ''Resp
-
-TH.deriveBifunctor     ''Cmd
-TH.deriveBifoldable    ''Cmd
-TH.deriveBitraversable ''Cmd
