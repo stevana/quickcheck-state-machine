@@ -69,7 +69,6 @@ module Test.StateMachine
   , CommandNames(..)
 
   , module Test.StateMachine.Logic
-  , module Test.StateMachine.Markov
 
     -- * Re-export
   , ToExpr
@@ -84,7 +83,6 @@ import           Prelude
 
 import           Test.StateMachine.ConstructorName
 import           Test.StateMachine.Logic
-import           Test.StateMachine.Markov
 import           Test.StateMachine.Parallel
 import           Test.StateMachine.Sequential
 import           Test.StateMachine.Types

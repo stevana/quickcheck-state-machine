@@ -1,3 +1,28 @@
+#### 0.8.0 (???)
+
+* Remove `markov-chain-usage-model` dependency and the related
+  `Test.StateMachine.Markov` module. The tests of the dependency started
+  failing:
+  https://github.com/advancedtelematic/markov-chain-usage-model/issues/44 , and
+  I don't think anyone is using that functionality anyway, so I decided to
+  remove it (please let me know if this breaks your tests);
+
+* Disable `ProcessRegistry` test for now, the generator needs to be migrated
+  away from using the removed `Markov` module;
+
+* Remove RQLite test as it was causing build issues with newer versions of GHC;
+
+* Add support for newer versions of GHC (9.2.8, 9.4.7, and 9.6.3);
+
+* Remove support for GHC 8.4.4, we need QuantifiedConstraints to build latest
+  version of servant;
+
+* Remove stack support;
+
+* Add nix support;
+
+* Add back CI support via GitHub Actions (remove old travis config).
+
 #### 0.7.3 (2023-6-1)
 
   * Fix compatibility with GHC 9.6 (PR #20, thanks @erikd);

@@ -637,7 +637,7 @@ module located in the
 directory.
 
 To get a better feel for the examples it might be helpful to `git clone` this
-repo, `cd` into it, fire up `stack ghci --test`, load the different examples,
+repo, `cd` into it, fire up `cabal repl test`, load the different examples,
 e.g. `:l test/CrudWebserverDb.hs`, and run the different properties
 interactively.
 

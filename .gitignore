@@ -8,6 +8,7 @@ dist/
 stack.yaml.lock
 *~
 *.swp
+cabal.project.local*
 
 cleanup-test-folder/
 sqlite-seq/
