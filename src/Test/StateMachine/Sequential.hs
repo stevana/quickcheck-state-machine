@@ -56,11 +56,12 @@ module Test.StateMachine.Sequential
   where
 
 import           Control.Exception
-                   (SomeException, SomeAsyncException (..), displayException,
-                   fromException)
-import           Control.Monad (when)
+                   (SomeAsyncException(..), SomeException,
+                   displayException, fromException)
+import           Control.Monad
+                   (when)
 import           Control.Monad.Catch
-                   (MonadCatch(..), MonadMask (..), catch, ExitCase (..))
+                   (ExitCase(..), MonadCatch(..), MonadMask(..), catch)
 import           Control.Monad.State.Strict
                    (StateT, evalStateT, get, lift, put, runStateT)
 import           Data.Bifunctor
@@ -81,9 +82,7 @@ import           Data.Proxy
                    (Proxy(..))
 import qualified Data.Set                          as S
 import           Data.Time
-                    (defaultTimeLocale, formatTime, getZonedTime)
-import           Data.TreeDiff
-                   (ToExpr, ansiWlBgEditExprCompact, ediff)
+                   (defaultTimeLocale, formatTime, getZonedTime)
 import           Prelude
 import           System.Directory
                    (createDirectoryIfMissing)
@@ -100,20 +99,23 @@ import           Test.QuickCheck.Monadic
                    (PropertyM, run)
 import           Test.QuickCheck.Random
                    (mkQCGen)
+import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 import           Text.PrettyPrint.ANSI.Leijen
                    (Doc)
-import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 import           Text.Show.Pretty
                    (ppShow)
 import           UnliftIO
                    (MonadIO, TChan, atomically, liftIO, newTChanIO,
                    tryReadTChan, writeTChan)
-import           UnliftIO.Exception (throwIO)
+import           UnliftIO.Exception
+                   (throwIO)
 
 import           Test.StateMachine.ConstructorName
 import           Test.StateMachine.Labelling
                    (Event(..), execCmds)
 import           Test.StateMachine.Logic
+import           Test.StateMachine.TreeDiff
+                   (ToExpr, ansiWlBgEditExprCompact, ediff)
 import           Test.StateMachine.Types
 import qualified Test.StateMachine.Types.Rank2     as Rank2
 import           Test.StateMachine.Utils

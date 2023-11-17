@@ -1,6 +1,6 @@
 #### 0.8.0 (???)
 
-* Remove `markov-chain-usage-model` dependency and the related
+* BREAKING CHANGE: Remove `markov-chain-usage-model` dependency and the related
   `Test.StateMachine.Markov` module. The tests of the dependency started
   failing:
   https://github.com/advancedtelematic/markov-chain-usage-model/issues/44 , and
@@ -21,7 +21,14 @@
 
 * Add nix support;
 
-* Add back CI support via GitHub Actions (remove old travis config).
+* Add back CI support via GitHub Actions (remove old travis config);
+
+* Remove the tree-diff dependency, and copy in the relevant bits that we need
+  from the 0.0.2.1 version instead. The reason for this is that after that
+  version the license was changed from BSD to GPL and pinning the dependency to
+  that version doesn't compile with newer GHC versions, by inlining tree-diff we
+  are in control of its dependecy bounds (and can thus make it compile with
+  newer versions of GHC).
 
 #### 0.7.3 (2023-6-1)
 
