@@ -76,7 +76,7 @@ jobs:
         run: cabal test all
 
       - name: Check cabal file
-        run: cabal check || true
+        run: cabal check
 
       - name: Build documentation
         run: cabal haddock all
