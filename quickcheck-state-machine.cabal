@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            quickcheck-state-machine
-version:         0.7.3
+version:         0.8.0
 synopsis:        Test monadic programs using state machine based models
 description:
   See README at <https://github.com/stevana/quickcheck-state-machine#readme>
