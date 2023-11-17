@@ -37,14 +37,14 @@ module Test.StateMachine.Types.References
 import           Data.Functor.Classes
                    (Eq1, Ord1, Show1, compare1, eq1, liftCompare,
                    liftEq, liftShowsPrec, showsPrec1)
-import           Data.TreeDiff
-                   (Expr(App), ToExpr, toExpr)
 import           Data.Typeable
                    (Typeable)
 import           GHC.Generics
                    (Generic)
 import           Prelude
 
+import           Test.StateMachine.TreeDiff
+                   (Expr(App), ToExpr, toExpr)
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
 ------------------------------------------------------------------------

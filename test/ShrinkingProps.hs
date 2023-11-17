@@ -45,8 +45,6 @@ import           Data.Proxy
 import           Data.Set
                    (Set)
 import qualified Data.Set                      as Set
-import           Data.TreeDiff
-                   (defaultExprViaShow)
 import           Data.Typeable
                    (Typeable)
 import           GHC.Generics
@@ -67,11 +65,13 @@ import           Test.Tasty.QuickCheck
 import           Test.StateMachine
 import qualified Test.StateMachine.Parallel    as QSM
 import qualified Test.StateMachine.Sequential  as QSM
+import           Test.StateMachine.TreeDiff
+                   (defaultExprViaShow)
 import qualified Test.StateMachine.Types       as QSM
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 import           Test.StateMachine.Utils
-                   (Shrunk(..), shrinkListS', shrinkListS',
-                   shrinkListS'', shrinkPairS')
+                   (Shrunk(..), shrinkListS', shrinkListS'',
+                   shrinkPairS')
 
 ------------------------------------------------------------------------
 

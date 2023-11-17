@@ -1,23 +1,23 @@
-cabal-version:      3.0
-name:               quickcheck-state-machine
-version:            0.7.3
-synopsis:           Test monadic programs using state machine based models
+cabal-version:   3.0
+name:            quickcheck-state-machine
+version:         0.7.3
+synopsis:        Test monadic programs using state machine based models
 description:
   See README at <https://github.com/stevana/quickcheck-state-machine#readme>
 
-homepage:           https://github.com/stevana/quickcheck-state-machine#readme
-license:            BSD-3-Clause
-license-file:       LICENSE
-author:             Stevan Andjelkovic
-maintainer:         Stevan Andjelkovic <stevan.andjelkovic@strath.ac.uk>
+homepage:        https://github.com/stevana/quickcheck-state-machine#readme
+license:         BSD-3-Clause
+license-file:    LICENSE
+author:          Stevan Andjelkovic
+maintainer:      Stevan Andjelkovic <stevan.andjelkovic@strath.ac.uk>
 copyright:
   Copyright (C) 2017-2018, ATS Advanced Telematic Systems GmbH;
   2018-2019, HERE Europe B.V.;
   2019-2023, Stevan Andjelkovic.
 
-category:           Testing
-build-type:         Simple
-extra-source-files:
+category:        Testing
+build-type:      Simple
+extra-doc-files:
   CHANGELOG.md
   CONTRIBUTING.md
   README.md
@@ -40,6 +40,12 @@ library
     Test.StateMachine.Logic
     Test.StateMachine.Parallel
     Test.StateMachine.Sequential
+    Test.StateMachine.TreeDiff
+    Test.StateMachine.TreeDiff.Class
+    Test.StateMachine.TreeDiff.Expr
+    Test.StateMachine.TreeDiff.List
+    Test.StateMachine.TreeDiff.Pretty
+    Test.StateMachine.TreeDiff.Tree
     Test.StateMachine.Types
     Test.StateMachine.Types.Environment
     Test.StateMachine.Types.GenSym
@@ -50,27 +56,40 @@ library
     Test.StateMachine.Z
 
   other-modules:    Paths_quickcheck_state_machine
+  autogen-modules:  Paths_quickcheck_state_machine
+
+  -- GHC boot library dependencies:
+  -- (https://gitlab.haskell.org/ghc/ghc/-/blob/master/packages)
+  build-depends:
+    , base        >=4.10    && <5
+    , containers  >=0.5.7.1
+    , directory   >=1.0.0.0
+    , exceptions  >=0.8.3
+    , filepath    >=1.0
+    , mtl         >=2.2.1
+    , process     >=1.2.0.0
+    , text        >=1.2.3.1
+    , time        >=1.7
+
   build-depends:
     , ansi-wl-pprint  >=0.6.7.3
-    , base            >=4.10        && <5
-    , containers      >=0.5.7.1
-    , directory       >=1.0.0.0
-    , exceptions      >=0.8.3
-    , filepath        >=1.0
     , generic-data    >=0.3.0.0
     , graphviz        >=2999.20.0.3
-    , matrix          >=0.3.5.0
-    , mtl             >=2.2.1
     , pretty-show     >=1.6.16
-    , process         >=1.2.0.0
     , QuickCheck      >=2.12
     , random          >=1.1
-    , sop-core
-    , split
-    , text
-    , time            >=1.7
-    , tree-diff       >=0.0.2.1
+    , sop-core        >=0.5.0.2
+    , split           >=0.2.3.5
     , unliftio        >=0.2.7.0
+
+  -- tree-diff dependencies:
+  build-depends:
+    , base-compat   >=0.9.3
+    , bytestring    >=0.10.4.0
+    , generics-sop  >=0.3.1.0
+    , MemoTrie      >=0.6.8
+    , pretty        >=1.1.1.1
+    , vector        >=0.12
 
   default-language: Haskell2010
 
@@ -119,7 +138,6 @@ test-suite test
     , tasty-hunit
     , tasty-quickcheck
     , text
-    , tree-diff
     , unliftio
     , unliftio-core
     , vector                    >=0.12.0.1

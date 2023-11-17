@@ -61,17 +61,17 @@ import           GHC.Generics
 import           Prelude
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
-import           Test.StateMachine
-                   hiding (showLabelledExamples, showLabelledExamples')
+import           Test.StateMachine                    hiding
+                   (showLabelledExamples, showLabelledExamples')
 
 import qualified Data.Monoid                          as M
-import qualified Data.TreeDiff                        as TD
 import qualified Test.StateMachine.Labelling          as Label
 import qualified Test.StateMachine.Sequential         as Seq
 import qualified Test.StateMachine.Types              as QSM
 import qualified Test.StateMachine.Types.Rank2        as Rank2
 
 import           Test.StateMachine.Lockstep.Auxiliary
+import qualified Test.StateMachine.TreeDiff           as TD
 
 {-------------------------------------------------------------------------------
   Test type-level parameters

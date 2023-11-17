@@ -89,8 +89,6 @@ import           Data.String.Conversions
 import           Data.Text
                    (Text)
 import qualified Data.Text                     as T
-import           Data.TreeDiff
-                   (Expr(App))
 import           Database.Persist.Class
 import           Database.Persist.Postgresql
                    (ConnectionPool, ConnectionString, SqlBackend,
@@ -111,8 +109,8 @@ import           Network.Socket
 import qualified Network.Wai.Handler.Warp      as Warp
 import           Prelude
 import           Servant
-                   ((:<|>)(..), (:>), Application, Capture, Delete,
-                   Get, JSON, Post, Put, ReqBody, Server, serve)
+                   (Application, Capture, Delete, Get, JSON, Post, Put,
+                   ReqBody, Server, serve, (:<|>)(..), (:>))
 import           Servant.Client
                    (BaseUrl(..), ClientEnv(..), ClientM, Scheme(Http),
                    client, mkClientEnv, runClientM)
@@ -132,6 +130,8 @@ import           UnliftIO
                    (Async, MonadIO, async, cancel, liftIO, waitEither)
 
 import           Test.StateMachine
+import           Test.StateMachine.TreeDiff
+                   (Expr(App))
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
 ------------------------------------------------------------------------

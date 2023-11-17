@@ -76,8 +76,6 @@ module Test.StateMachine
 
   ) where
 
-import           Data.TreeDiff
-                   (ToExpr, toExpr)
 import           Prelude
                    ()
 
@@ -85,4 +83,6 @@ import           Test.StateMachine.ConstructorName
 import           Test.StateMachine.Logic
 import           Test.StateMachine.Parallel
 import           Test.StateMachine.Sequential
+import           Test.StateMachine.TreeDiff
+                   (ToExpr, toExpr)
 import           Test.StateMachine.Types

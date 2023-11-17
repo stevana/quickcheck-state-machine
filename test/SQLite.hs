@@ -34,7 +34,7 @@ import           Control.Monad.Logger
 import           Control.Monad.Reader
 import           Data.Bifoldable
 import           Data.Bifunctor
-import qualified Data.Bifunctor.TH             as TH
+import qualified Data.Bifunctor.TH               as TH
 import           Data.Bitraversable
 import           Data.Functor.Classes
 import           Data.Kind
@@ -44,10 +44,9 @@ import           Data.Maybe
 import           Data.Pool
 import           Data.Text
                    (Text, pack)
-import           Data.TreeDiff.Expr
 import           Database.Persist
 import           Database.Persist.Sqlite
-import           Database.Sqlite               hiding
+import           Database.Sqlite                 hiding
                    (step)
 import           GHC.Generics
                    (Generic, Generic1)
@@ -57,8 +56,9 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
 import           Test.StateMachine
 import           Test.StateMachine.DotDrawing
+import           Test.StateMachine.TreeDiff.Expr
 import           Test.StateMachine.Types
-import qualified Test.StateMachine.Types.Rank2 as Rank2
+import qualified Test.StateMachine.Types.Rank2   as Rank2
 
 import           Schema
 
