@@ -17,6 +17,8 @@
 * Remove support for GHC 8.4.4, we need QuantifiedConstraints to build latest
   version of servant;
 
+* Remove support for GHC 8.6.5 (released 23rd April 2019);
+
 * Remove stack support;
 
 * Add nix support;
