@@ -1,6 +1,10 @@
 ## quickcheck-state-machine
 
 [![Hackage](https://img.shields.io/hackage/v/quickcheck-state-machine.svg)](https://hackage.haskell.org/package/quickcheck-state-machine)
+[![Build
+status](https://github.com/stevana/quickcheck-state-machine/actions/workflows/main.yaml/badge.svg)](https://github.com/stevana/quickcheck-state-machine/actions)
+[![Stackage Nightly](http://stackage.org/package/quickcheck-state-machine/badge/nightly)](http://stackage.org/nightly/package/quickcheck-state-machine)
+[![Stackage LTS](http://stackage.org/package/quickcheck-state-machine/badge/lts)](http://stackage.org/lts/package/quickcheck-state-machine)
 
 `quickcheck-state-machine` is a Haskell library, based
 on [QuickCheck](https://hackage.haskell.org/package/QuickCheck), for testing

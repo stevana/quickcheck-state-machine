@@ -1,4 +1,4 @@
-#### 0.8.0 (???)
+#### 0.8.0 (2023-11-17)
 
 * BREAKING CHANGE: Remove `markov-chain-usage-model` dependency and the related
   `Test.StateMachine.Markov` module. The tests of the dependency started
