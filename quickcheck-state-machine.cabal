@@ -62,34 +62,34 @@ library
   -- (https://gitlab.haskell.org/ghc/ghc/-/blob/master/packages)
   build-depends:
     , base        >=4.10    && <5
-    , containers  >=0.5.7.1
-    , directory   >=1.0.0.0
-    , exceptions  >=0.8.3
-    , filepath    >=1.0
-    , mtl         >=2.2.1
-    , process     >=1.2.0.0
-    , text        >=1.2.3.1
-    , time        >=1.7
+    , containers  >=0.5.7.1 && <0.7
+    , directory   >=1.0.0.0 && <1.4
+    , exceptions  >=0.8.3   && <0.11
+    , filepath    >=1.0     && <1.5
+    , mtl         >=2.2.1   && <2.4
+    , process     >=1.2.0.0 && <1.7
+    , text        >=1.2.3.1 && <2.1
+    , time        >=1.7     && <1.13
 
   build-depends:
-    , ansi-wl-pprint  >=0.6.7.3
-    , generic-data    >=0.3.0.0
-    , graphviz        >=2999.20.0.3
-    , pretty-show     >=1.6.16
-    , QuickCheck      >=2.12
-    , random          >=1.1
-    , sop-core        >=0.5.0.2
-    , split           >=0.2.3.5
-    , unliftio        >=0.2.7.0
+    , ansi-wl-pprint  >=0.6.7.3     && <1.1
+    , generic-data    >=0.3.0.0     && <1.2
+    , graphviz        >=2999.20.0.3 && <2999.21
+    , pretty-show     >=1.6.16      && <1.11
+    , QuickCheck      >=2.12        && <2.15
+    , random          >=1.1         && <1.3
+    , sop-core        >=0.5.0.2     && <0.6
+    , split           >=0.2.3.5     && <0.3
+    , unliftio        >=0.2.7.0     && <0.3
 
   -- tree-diff dependencies:
   build-depends:
-    , base-compat   >=0.9.3
-    , bytestring    >=0.10.4.0
-    , generics-sop  >=0.3.1.0
-    , MemoTrie      >=0.6.8
-    , pretty        >=1.1.1.1
-    , vector        >=0.12
+    , base-compat   >=0.9.3    && <0.14
+    , bytestring    >=0.10.4.0 && <0.12
+    , generics-sop  >=0.3.1.0  && <0.6
+    , MemoTrie      >=0.6.8    && <0.7
+    , pretty        >=1.1.1.1  && <1.2
+    , vector        >=0.12     && <0.14
 
   default-language: Haskell2010
 
