@@ -43,15 +43,12 @@ import           GHC.Generics
                    (Generic)
 import           Prelude
 
-import           Test.StateMachine.TreeDiff
-                   (Expr(App), ToExpr, toExpr)
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
 ------------------------------------------------------------------------
 
 newtype Var = Var Int
   deriving stock   (Eq, Ord, Show, Generic, Read)
-  deriving newtype (ToExpr)
 
 data Symbolic a where
   Symbolic :: Typeable a => Var -> Symbolic a
@@ -68,9 +65,6 @@ instance Show1 Symbolic where
       showsPrec (appPrec + 1) x
     where
       appPrec = 10
-
-instance ToExpr a => ToExpr (Symbolic a) where
-  toExpr (Symbolic x) = toExpr x
 
 instance Eq1 Symbolic where
   liftEq _ (Symbolic x) (Symbolic y) = x == y
@@ -101,15 +95,10 @@ deriving instance Ord a => Ord (Concrete a)
 instance Ord1 Concrete where
   liftCompare comp (Concrete x) (Concrete y) = comp x y
 
-instance ToExpr a => ToExpr (Concrete a) where
-  toExpr (Concrete x) = toExpr x
-
 newtype Reference a r = Reference (r a)
   deriving stock Generic
 
 deriving stock instance Typeable a => Read (Reference a Symbolic)
-
-instance ToExpr (r a) => ToExpr (Reference a r)
 
 instance Rank2.Functor (Reference a) where
   fmap f (Reference r) = Reference (f r)
@@ -148,6 +137,3 @@ newtype Opaque a = Opaque
 
 instance Show (Opaque a) where
   showsPrec _ (Opaque _) = showString "Opaque"
-
-instance ToExpr (Opaque a) where
-  toExpr _ = App "Opaque" []

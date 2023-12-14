@@ -62,6 +62,7 @@ import           Test.QuickCheck.Monadic
                    (PropertyM, monadicIO)
 
 import           Test.StateMachine
+import           Test.StateMachine.TreeDiff
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
 ------------------------------------------------------------------------

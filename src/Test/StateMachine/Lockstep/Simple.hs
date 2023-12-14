@@ -33,6 +33,9 @@ module Test.StateMachine.Lockstep.Simple (
   , prop_parallel
     -- * Translate to n-ary model model
   , fromSimple
+    -- * For orphan ToExpr instances
+  , Simple
+  , NAry.MockHandleN(SimpleToMock)
   ) where
 
 import           Data.Bifunctor
@@ -144,7 +147,7 @@ cmdAtToSimple :: Functor (Cmd t) => NAry.Cmd (Simple t) NAry.:@ r -> Cmd t :@ r
 cmdAtToSimple = At . fmap NAry.unFlipRef . unSimpleCmd . NAry.unAt
 
 cmdMockToSimple :: Functor (Cmd t)
-                => NAry.Cmd (Simple t) (NAry.MockHandle (Simple t)) '[RealHandle t]
+                => NAry.Cmd (Simple t) (NAry.MockHandleN (Simple t)) '[RealHandle t]
                 -> Cmd t (MockHandle t)
 cmdMockToSimple = fmap unSimpleToMock . unSimpleCmd
 
@@ -155,11 +158,11 @@ cmdRealToSimple = fmap unI . unSimpleCmd
 
 respMockFromSimple :: Functor (Resp t)
                    => Resp t (MockHandle t)
-                   -> NAry.Resp (Simple t) (NAry.MockHandle (Simple t)) '[RealHandle t]
+                   -> NAry.Resp (Simple t) (NAry.MockHandleN (Simple t)) '[RealHandle t]
 respMockFromSimple = SimpleResp . fmap SimpleToMock
 
 respMockToSimple :: Functor (Resp t)
-                 => NAry.Resp (Simple t) (NAry.MockHandle (Simple t)) '[RealHandle t]
+                 => NAry.Resp (Simple t) (NAry.MockHandleN (Simple t)) '[RealHandle t]
                  -> Resp t (MockHandle t)
 respMockToSimple = fmap unSimpleToMock . unSimpleResp
 
@@ -191,18 +194,21 @@ data StateMachineTest t =
     , Show (Cmd t (Reference (RealHandle t) Concrete))
     , Traversable (Cmd t)
       -- Real handles
-    , Eq     (RealHandle t)
-    , Show   (RealHandle t)
-    , ToExpr (RealHandle t)
+    , Eq      (RealHandle t)
+    , Show    (RealHandle t)
+    , CanDiff (RealHandle t)
       -- Mock handles
-    , Eq     (MockHandle t)
-    , Show   (MockHandle t)
-    , ToExpr (MockHandle t)
+    , Eq      (MockHandle t)
+    , Show    (MockHandle t)
+    , CanDiff (MockHandle t)
+    , CanDiff (NAry.MockHandleN (Simple t) (RealHandle t))
       -- Mock state
-    , Show   (MockState t)
-    , ToExpr (MockState t)
+    , Show    (MockState t)
+    , CanDiff (MockState t)
       -- Tags
     , Show (Tag t)
+      -- Model
+    , CanDiff (NAry.Model (Simple t) Concrete)
     ) => StateMachineTest {
       runMock    :: Cmd t (MockHandle t) -> MockState t -> (Resp t (MockHandle t), MockState t)
     , runReal    :: Cmd t (RealHandle t) -> IO (Resp t (RealHandle t))
@@ -226,7 +232,7 @@ data instance NAry.Cmd (Simple _) _f _hs where
 data instance NAry.Resp (Simple _) _f _hs where
     SimpleResp :: Resp t (f h) -> NAry.Resp (Simple t) f '[h]
 
-newtype instance NAry.MockHandle (Simple t) (RealHandle t) =
+newtype instance NAry.MockHandleN (Simple t) (RealHandle t) =
     SimpleToMock { unSimpleToMock :: MockHandle t }
 
 unSimpleCmd :: NAry.Cmd (Simple t) f '[h] -> Cmd t (f h)
@@ -238,12 +244,12 @@ unSimpleResp (SimpleResp resp) = resp
 instance ( Functor (Resp t)
          , Eq (Resp t (MockHandle t))
          , Eq (MockHandle t)
-         ) => Eq (NAry.Resp (Simple t) (NAry.MockHandle (Simple t)) '[RealHandle t]) where
+         ) => Eq (NAry.Resp (Simple t) (NAry.MockHandleN (Simple t)) '[RealHandle t]) where
   SimpleResp r == SimpleResp r' = (unSimpleToMock <$> r) == (unSimpleToMock <$> r')
 
 instance ( Functor (Resp t)
          , Show (Resp t (MockHandle t))
-         ) => Show (NAry.Resp (Simple t) (NAry.MockHandle (Simple t)) '[RealHandle t]) where
+         ) => Show (NAry.Resp (Simple t) (NAry.MockHandleN (Simple t)) '[RealHandle t]) where
   show (SimpleResp r) = show (unSimpleToMock <$> r)
 
 instance ( Functor (Resp t)
@@ -258,18 +264,14 @@ instance ( Functor (Cmd t)
          ) => Show (NAry.Cmd (Simple t) (NAry.FlipRef r) '[RealHandle t]) where
   show (SimpleCmd r) = show (NAry.unFlipRef <$> r)
 
-deriving stock instance Eq   (MockHandle t) => Eq   (NAry.MockHandle (Simple t) (RealHandle t))
-deriving stock instance Show (MockHandle t) => Show (NAry.MockHandle (Simple t) (RealHandle t))
+deriving stock instance Eq   (MockHandle t) => Eq   (NAry.MockHandleN (Simple t) (RealHandle t))
+deriving stock instance Show (MockHandle t) => Show (NAry.MockHandleN (Simple t) (RealHandle t))
 
 instance Traversable (Resp t) => NTraversable (NAry.Resp (Simple t)) where
   nctraverse _ f (SimpleResp x) = SimpleResp <$> traverse (f ElemHead) x
 
 instance Traversable (Cmd t) => NTraversable (NAry.Cmd (Simple t)) where
   nctraverse _ f (SimpleCmd x) = SimpleCmd <$> traverse (f ElemHead) x
-
-instance ToExpr (MockHandle t)
-      => ToExpr (NAry.MockHandle (Simple t) (RealHandle t)) where
-  toExpr (SimpleToMock h) = toExpr h
 
 fromSimple :: StateMachineTest t -> NAry.StateMachineTest (Simple t) IO
 fromSimple StateMachineTest{..} = NAry.StateMachineTest {

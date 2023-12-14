@@ -2,9 +2,10 @@
 -- | A list diff.
 module Test.StateMachine.TreeDiff.List (diffBy, Edit (..)) where
 
-import Data.List.Compat (sortOn)
-import qualified Data.MemoTrie as M
-import qualified Data.Vector as V
+import           Data.List.Compat
+                   (sortOn)
+import qualified Data.MemoTrie    as M
+import qualified Data.Vector      as V
 
 -- | List edit operations
 --
