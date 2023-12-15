@@ -39,7 +39,8 @@ import           UnliftIO
                    (TVar, atomically, newTVarIO, readTVar, writeTVar)
 
 import           Test.StateMachine
-import           Test.StateMachine.Types as QC
+import           Test.StateMachine.TreeDiff
+import           Test.StateMachine.Types       as QC
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
 ------------------------------------------------------------------------

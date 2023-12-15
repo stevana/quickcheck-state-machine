@@ -22,7 +22,7 @@ module Test.StateMachine.Lockstep.NAry (
   , Cmd
   , Resp
   , RealHandles
-  , MockHandle
+  , MockHandleN
   , Test
   , Tag
     -- * Test term-level parameters
@@ -71,7 +71,6 @@ import qualified Test.StateMachine.Types              as QSM
 import qualified Test.StateMachine.Types.Rank2        as Rank2
 
 import           Test.StateMachine.Lockstep.Auxiliary
-import qualified Test.StateMachine.TreeDiff           as TD
 
 {-------------------------------------------------------------------------------
   Test type-level parameters
@@ -94,8 +93,8 @@ type family RealHandles t :: [Type]
 
 -- | Mock handles
 --
--- For each real handle @a@, @MockHandle t a@ is the corresponding mock handle.
-data family MockHandle t a :: Type
+-- For each real handle @a@, @MockHandleN t a@ is the corresponding mock handle.
+data family MockHandleN t a :: Type
 
 -- | Commands
 --
@@ -103,7 +102,7 @@ data family MockHandle t a :: Type
 -- functor applied to each of them. Two typical instantiations are
 --
 -- > Cmd t I              (RealHandles t)   -- for the system under test
--- > Cmd t (MockHandle t) (RealHandles t)   -- for the mock
+-- > Cmd t (MockHandleN t) (RealHandles t)   -- for the mock
 data family Cmd t :: (Type -> Type) -> [Type] -> Type
 
 -- | Responses
@@ -111,7 +110,7 @@ data family Cmd t :: (Type -> Type) -> [Type] -> Type
 -- The type arguments are similar to those of @Cmd@. Two typical instances:
 --
 -- > Resp t I              (RealHandles t)  -- for the system under test
--- > Resp t (MockHandle t) (RealHandles t)  -- for the mock
+-- > Resp t (MockHandleN t) (RealHandles t)  -- for the mock
 data family Resp t :: (Type -> Type) -> [Type] -> Type
 
 -- | Tags
@@ -126,42 +125,27 @@ type family Tag t :: Type
 -------------------------------------------------------------------------------}
 
 -- | Relation between real and mock references for single handle type @a@
-newtype Refs t r a = Refs { unRefs :: [(Reference a r, MockHandle t a)] }
+newtype Refs t r a = Refs { unRefs :: [(Reference a r, MockHandleN t a)] }
   deriving newtype (Semigroup, Monoid, Generic)
 
 deriving
   stock
-  instance (Show1 r, Show a, Show (MockHandle t a)) => Show (Refs t r a)
-
-deriving
-  newtype
-  instance (ToExpr a, ToExpr (MockHandle t a)) => ToExpr (Refs t Concrete a)
+  instance (Show1 r, Show a, Show (MockHandleN t a)) => Show (Refs t r a)
 
 -- | Relation between real and mock references for /all/ handle types
 newtype Refss t r = Refss { unRefss :: NP (Refs t r) (RealHandles t) }
 
 instance ( Show1 r
-         , All (And Show (Compose Show (MockHandle t))) (RealHandles t)
+         , All (And Show (Compose Show (MockHandleN t))) (RealHandles t)
          ) => Show (Refss t r) where
   show = unlines
        . hcollapse
-       . hcmap (Proxy @(And Show (Compose Show (MockHandle t)))) showOne
+       . hcmap (Proxy @(And Show (Compose Show (MockHandleN t)))) showOne
        . unRefss
     where
-      showOne :: (Show a, Show (MockHandle t a))
+      showOne :: (Show a, Show (MockHandleN t a))
               => Refs t r a -> K String a
       showOne = K . show
-
-instance All (And ToExpr (Compose ToExpr (MockHandle t))) (RealHandles t)
-      => ToExpr (Refss t Concrete) where
-  toExpr = TD.Lst
-         . hcollapse
-         . hcmap (Proxy @(And ToExpr (Compose ToExpr (MockHandle t)))) toExprOne
-         . unRefss
-    where
-      toExprOne :: (ToExpr a, ToExpr (MockHandle t a))
-                => Refs t Concrete a -> K TD.Expr a
-      toExprOne = K . toExpr
 
 instance SListI (RealHandles t) => Semigroup (Refss t r) where
   Refss rss <> Refss rss' = Refss $ hzipWith (<>) rss rss'
@@ -201,12 +185,8 @@ data Model t r = Model {
 
 deriving stock instance ( Show1 r
                         , Show (MockState t)
-                        , All (And Show (Compose Show (MockHandle t))) (RealHandles t)
+                        , All (And Show (Compose Show (MockHandleN t))) (RealHandles t)
                         ) => Show (Model t r)
-
-instance ( ToExpr (MockState t)
-         , All (And ToExpr (Compose ToExpr (MockHandle t))) (RealHandles t)
-         ) => ToExpr (Model t Concrete)
 
 initModel :: StateMachineTest t m -> Model t r
 initModel StateMachineTest{..} = Model initMock (Refss (hpure (Refs [])))
@@ -222,14 +202,14 @@ initModel StateMachineTest{..} = Model initMock (Refss (hpure (Refs [])))
 data StateMachineTest t m =
     ( Monad m
     -- Requirements on the handles
-    , All Typeable                                     (RealHandles t)
-    , All Eq                                           (RealHandles t)
-    , All (And Show   (Compose Show   (MockHandle t))) (RealHandles t)
-    , All (And ToExpr (Compose ToExpr (MockHandle t))) (RealHandles t)
+    , All Typeable                                       (RealHandles t)
+    , All Eq                                             (RealHandles t)
+    , All (And Show    (Compose Show    (MockHandleN t))) (RealHandles t)
+    , All (And CanDiff (Compose CanDiff (MockHandleN t))) (RealHandles t)
     -- Response
     , NTraversable (Resp t)
-    , Eq   (Resp t (MockHandle t)     (RealHandles t))
-    , Show (Resp t (MockHandle t)     (RealHandles t))
+    , Eq   (Resp t (MockHandleN t)     (RealHandles t))
+    , Show (Resp t (MockHandleN t)     (RealHandles t))
     , Show (Resp t (FlipRef Symbolic) (RealHandles t))
     , Show (Resp t (FlipRef Concrete) (RealHandles t))
     -- Command
@@ -238,11 +218,13 @@ data StateMachineTest t m =
     , Show (Cmd t (FlipRef Concrete) (RealHandles t))
     -- MockState
     , Show   (MockState t)
-    , ToExpr (MockState t)
+    , CanDiff (MockState t)
     -- Tags
     , Show (Tag t)
+    -- Model
+    , CanDiff (Model t Concrete)
     ) => StateMachineTest {
-      runMock    :: Cmd t (MockHandle t) (RealHandles t) -> MockState t -> (Resp t (MockHandle t) (RealHandles t), MockState t)
+      runMock    :: Cmd t (MockHandleN t) (RealHandles t) -> MockState t -> (Resp t (MockHandleN t) (RealHandles t), MockState t)
     , runReal    :: Cmd t I              (RealHandles t) -> m (Resp t I (RealHandles t))
     , initMock   :: MockState t
     , newHandles :: forall f. Resp t f (RealHandles t) -> NP ([] :.: f) (RealHandles t)
@@ -288,30 +270,30 @@ wrapConcrete = FlipRef . reference  . unI
 -- > toMock :: Refss t Symbolic
 --          -> Cmd (FlipRef r) (Handles t)
 --          -> Cmd  ToMock     (Handles t)
-toMockHandles :: (NTraversable f, t ~ Test f, All Eq (RealHandles t), Eq1 r)
-              => Refss t r -> f :@ r -> f (MockHandle t) (RealHandles t)
-toMockHandles rss (At fr) =
+toMockHandleNs :: (NTraversable f, t ~ Test f, All Eq (RealHandles t), Eq1 r)
+              => Refss t r -> f :@ r -> f (MockHandleN t) (RealHandles t)
+toMockHandleNs rss (At fr) =
     ncfmap (Proxy @Eq) (\pf -> find (unRefss rss) pf . unFlipRef) fr
   where
     find :: (Eq a, Eq1 r)
          => NP (Refs t r) (RealHandles t)
          -> Elem (RealHandles t) a
-         -> Reference a r -> MockHandle t a
+         -> Reference a r -> MockHandleN t a
     find refss ix r = unRefs (npAt refss ix) ! r
 
 step :: Eq1 r
      => StateMachineTest t m
      -> Model t r
      -> Cmd t :@ r
-     -> (Resp t (MockHandle t) (RealHandles t), MockState t)
+     -> (Resp t (MockHandleN t) (RealHandles t), MockState t)
 step StateMachineTest{..} (Model st rss) cmd =
-    runMock (toMockHandles rss cmd) st
+    runMock (toMockHandleNs rss cmd) st
 
 data Event t r = Event {
       before   :: Model t    r
     , cmd      :: Cmd   t :@ r
     , after    :: Model t    r
-    , mockResp :: Resp t (MockHandle t) (RealHandles t)
+    , mockResp :: Resp t (MockHandleN t) (RealHandles t)
     }
 
 lockstep :: forall t m r. Eq1 r
@@ -346,7 +328,7 @@ postcondition :: StateMachineTest t m
               -> Resp  t :@ Concrete
               -> Logic
 postcondition sm@StateMachineTest{} m c r =
-    toMockHandles (modelRefss $ after e) r .== mockResp e
+    toMockHandleNs (modelRefss $ after e) r .== mockResp e
   where
     e = lockstep sm m c r
 
@@ -543,9 +525,9 @@ env ! r = fromJust (lookup r env)
 
 zipHandles :: SListI (RealHandles t)
            => NP ([] :.: FlipRef r)    (RealHandles t)
-           -> NP ([] :.: MockHandle t) (RealHandles t)
+           -> NP ([] :.: MockHandleN t) (RealHandles t)
            -> Refss t r
 zipHandles = \real mock -> Refss $ hzipWith zip' real mock
   where
-    zip' :: (:.:) [] (FlipRef r) a -> (:.:) [] (MockHandle t) a -> Refs t r a
+    zip' :: (:.:) [] (FlipRef r) a -> (:.:) [] (MockHandleN t) a -> Refs t r a
     zip' (Comp real) (Comp mock) = Refs $ zip (map unFlipRef real) mock

@@ -1,3 +1,11 @@
+#### 0.9.0 (????-??-??)
+
+* Split the package into the machinery that abstracts over whichever diffing
+  implementation is in use (via the `CanDiff` class), and the implementation of
+  that class via the vendored tree-diff. See the
+  [README](https://github.com/stevana/quickcheck-state-machine#using-quickcheck-state-machine-as-a-dependency)
+  for more details on how to depend on either.
+
 #### 0.8.0 (2023-11-17)
 
 * BREAKING CHANGE: Remove `markov-chain-usage-model` dependency and the related

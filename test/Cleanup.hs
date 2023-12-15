@@ -41,7 +41,9 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
                    (monadicIO)
 import           Test.StateMachine
-import qualified Test.StateMachine.Types as QSM (initModel)
+import           Test.StateMachine.TreeDiff
+import qualified Test.StateMachine.Types       as QSM
+                   (initModel)
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 import           Test.StateMachine.Utils
                    (liftProperty, mkModel, whenFailM)

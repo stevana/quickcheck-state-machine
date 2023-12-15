@@ -131,7 +131,7 @@ import           UnliftIO
 
 import           Test.StateMachine
 import           Test.StateMachine.TreeDiff
-                   (Expr(App))
+                   (Expr(App), ToExpr(toExpr))
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
 ------------------------------------------------------------------------

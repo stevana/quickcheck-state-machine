@@ -58,6 +58,7 @@ import           UnliftIO
                    throwIO)
 
 import           Test.StateMachine
+import           Test.StateMachine.TreeDiff
 import qualified Test.StateMachine.Types.Rank2      as Rank2
 import           Test.StateMachine.Z
                    (codomain, domain)
@@ -143,12 +144,12 @@ findByAuthor, findByTitle
   :: Bug -> String -> Connection -> IO (Maybe [Book])
 findByAuthor bug s = case bug of
   Injection -> handleViolations (select templ $ "%"++s++"%")
-  _          -> handleViolations (select templ $ "%"++(sanitize s)++"%")
+  _         -> handleViolations (select templ $ "%"++(sanitize s)++"%")
   where templ = "SELECT * FROM books WHERE author LIKE ?"
 
 findByTitle bug s = case bug of
   Injection -> handleViolations (select templ $ "%"++s++"%")
-  _          -> handleViolations (select templ $ "%"++(sanitize s)++"%")
+  _         -> handleViolations (select templ $ "%"++(sanitize s)++"%")
   where templ = "SELECT * FROM books WHERE title LIKE ?"
 
 findByIsbn :: String -> Connection -> IO (Maybe [Book])
@@ -347,10 +348,10 @@ postconditions (Model m) cmd resp = case cmd of
 transitions :: Model r -> Command r -> Response r -> Model r
 transitions (Model m) cmd _ = Model $ case cmd of
   NewBook New key t a -> (key, Book (getString key) t a 0 0):m
-  AddCopy Exist key -> map (applyForKey key $ incOwned . incAvail) m
-  Borrow  Avail key -> map (applyForKey key decAvail) m
-  Return  Taken key -> map (applyForKey key incAvail) m
-  _ -> m
+  AddCopy Exist key   -> map (applyForKey key $ incOwned . incAvail) m
+  Borrow  Avail key   -> map (applyForKey key decAvail) m
+  Return  Taken key   -> map (applyForKey key incAvail) m
+  _                   -> m
   where
     applyForKey key fn (k, v) = (k, if k == key then fn v else v)
     incOwned row = row { owned = 1 + owned row }

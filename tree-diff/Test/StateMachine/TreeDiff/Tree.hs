@@ -2,11 +2,12 @@
 -- | Tree diffing working on @containers@ 'Tree'.
 module Test.StateMachine.TreeDiff.Tree (treeDiff, EditTree (..), Edit (..)) where
 
-import Data.Tree          (Tree (..))
-import Test.StateMachine.TreeDiff.List
+import           Data.Tree
+                   (Tree(..))
+import           Test.StateMachine.TreeDiff.List
 
 #ifdef __DOCTEST__
-import qualified Text.PrettyPrint as PP
+import qualified Text.PrettyPrint                as PP
 #endif
 
 -- | A breadth-traversal diff.

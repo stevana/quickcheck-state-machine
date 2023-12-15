@@ -1,11 +1,13 @@
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MonoLocalBinds        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeApplications      #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -111,11 +113,11 @@ import           UnliftIO.Exception
                    (throwIO)
 
 import           Test.StateMachine.ConstructorName
+import           Test.StateMachine.Diffing
+                   (CanDiff(..), ediff)
 import           Test.StateMachine.Labelling
                    (Event(..), execCmds)
 import           Test.StateMachine.Logic
-import           Test.StateMachine.TreeDiff
-                   (ToExpr, ansiWlBgEditExprCompact, ediff)
 import           Test.StateMachine.Types
 import qualified Test.StateMachine.Types.Rank2     as Rank2
 import           Test.StateMachine.Utils
@@ -462,10 +464,12 @@ executeCommands StateMachine {..} hchan pid check =
 getUsedConcrete :: Rank2.Foldable f => f Concrete -> [Dynamic]
 getUsedConcrete = Rank2.foldMap (\(Concrete x) -> [toDyn x])
 
-modelDiff :: ToExpr (model r) => model r -> Maybe (model r) -> Doc
-modelDiff model = ansiWlBgEditExprCompact . flip ediff model . fromMaybe model
+modelDiff :: forall model r. CanDiff (model r) => model r -> Maybe (model r) -> Doc
+modelDiff model = diffToDocCompact p . flip ediff model . fromMaybe model
+ where
+   p = Proxy @(model r)
 
-prettyPrintHistory :: forall model cmd m resp. ToExpr (model Concrete)
+prettyPrintHistory :: forall model cmd m resp. CanDiff (model Concrete)
                    => (Show (cmd Concrete), Show (resp Concrete))
                    => StateMachine model cmd m resp
                    -> History cmd resp
@@ -510,7 +514,7 @@ prettyPrintHistory StateMachine { initModel, transition }
         ]
     go _ _ _ = error "prettyPrintHistory: impossible."
 
-prettyCommands :: (MonadIO m, ToExpr (model Concrete))
+prettyCommands :: (MonadIO m, CanDiff (model Concrete))
                => (Show (cmd Concrete), Show (resp Concrete))
                => StateMachine model cmd m resp
                -> History cmd resp
@@ -518,8 +522,8 @@ prettyCommands :: (MonadIO m, ToExpr (model Concrete))
                -> PropertyM m ()
 prettyCommands sm hist prop = prettyPrintHistory sm hist `whenFailM` prop
 
-prettyPrintHistory' :: forall model cmd m resp tag. ToExpr (model Concrete)
-                    => (Show (cmd Concrete), Show (resp Concrete), ToExpr tag)
+prettyPrintHistory' :: forall model cmd m resp tag. CanDiff (model Concrete)
+                    => (Show (cmd Concrete), Show (resp Concrete), CanDiff [tag])
                     => StateMachine model cmd m resp
                     -> ([Event model cmd resp Symbolic] -> [tag])
                     -> Commands cmd resp
@@ -532,7 +536,7 @@ prettyPrintHistory' sm@StateMachine { initModel, transition } tag cmds
   . unHistory
   where
     tagsDiff :: [tag] -> [tag] -> Doc
-    tagsDiff old new = ansiWlBgEditExprCompact (ediff old new)
+    tagsDiff old new = diffToDocCompact (Proxy @[tag]) (ediff old new)
 
     go :: model Concrete -> Maybe (model Concrete) -> [tag] -> [[tag]]
        -> [Operation cmd resp] -> Doc
@@ -577,7 +581,7 @@ prettyPrintHistory' sm@StateMachine { initModel, transition } tag cmds
 
 -- | Variant of 'prettyCommands' that also prints the @tag@s covered by each
 -- command.
-prettyCommands' :: (MonadIO m, ToExpr (model Concrete), ToExpr tag)
+prettyCommands' :: (MonadIO m, CanDiff (model Concrete), CanDiff [tag])
                 => (Show (cmd Concrete), Show (resp Concrete))
                 => StateMachine model cmd m resp
                 -> ([Event model cmd resp Symbolic] -> [tag])

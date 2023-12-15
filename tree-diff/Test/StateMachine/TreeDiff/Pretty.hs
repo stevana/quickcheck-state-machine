@@ -24,29 +24,33 @@ module Test.StateMachine.TreeDiff.Pretty (
     escapeName,
     ) where
 
-import Data.Char          (isAlphaNum, isPunctuation, isSymbol, ord)
-import Data.Either        (partitionEithers)
-import Test.StateMachine.TreeDiff.Expr
-import Numeric            (showHex)
-import Text.Read          (readMaybe)
+import           Data.Char
+                   (isAlphaNum, isPunctuation, isSymbol, ord)
+import           Data.Either
+                   (partitionEithers)
+import           Numeric
+                   (showHex)
+import           Test.StateMachine.TreeDiff.Expr
+import           Text.Read
+                   (readMaybe)
 
 
-import qualified Data.Map                     as Map
-import qualified Text.PrettyPrint             as HJ
-import qualified Text.PrettyPrint.ANSI.Leijen as WL
+import qualified Data.Map                        as Map
+import qualified Text.PrettyPrint                as HJ
+import qualified Text.PrettyPrint.ANSI.Leijen    as WL
 
 -- | Because we don't want to commit to single pretty printing library,
 -- we use explicit dictionary.
 data Pretty doc = Pretty
-    { ppCon        :: ConstructorName -> doc
-    , ppRec        :: [(FieldName, doc)] -> doc
-    , ppLst        :: [doc] -> doc
-    , ppCpy        :: doc -> doc
-    , ppIns        :: doc -> doc
-    , ppDel        :: doc -> doc
-    , ppSep        :: [doc] -> doc
-    , ppParens     :: doc -> doc
-    , ppHang       :: doc -> doc -> doc
+    { ppCon    :: ConstructorName -> doc
+    , ppRec    :: [(FieldName, doc)] -> doc
+    , ppLst    :: [doc] -> doc
+    , ppCpy    :: doc -> doc
+    , ppIns    :: doc -> doc
+    , ppDel    :: doc -> doc
+    , ppSep    :: [doc] -> doc
+    , ppParens :: doc -> doc
+    , ppHang   :: doc -> doc -> doc
     }
 
 -- | Escape field or constructor name
@@ -101,7 +105,7 @@ escapeName n
     isValidString s
         | length s >= 2 && head s == '"' && last s == '"' =
             case readMaybe s :: Maybe String of
-                Just _ -> True
+                Just _  -> True
                 Nothing -> False
     isValidString _         = False
 

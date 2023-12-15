@@ -667,6 +667,43 @@ More examples from the "real world":
     [tests](https://github.com/stevana/raft/blob/master/test/QuickCheckStateMachine.hs)
     combined with fault injection (node and network failures).
 
+### Using `quickcheck-state-machine` as a dependency
+
+In order to bring `quickcheck-state-machine` into your code, add it to the
+`build-depends` section in your cabal file:
+
+``` cabal
+test-suite ...
+  build-depends:
+    , quickcheck-state-machine
+```
+
+This dependency can be used out of the box, however, it comes with an fork of an
+old version of
+[`tree-diff`](https://hackage.haskell.org/package/tree-diff-0.0.2.1) vendored
+inside.
+
+> For `quickcheck-state-machine` to remain BSD-style licensed, it could not
+> depend on the `tree-diff` package as that one changed its license to `GPL`,
+> therefore the solution was to vendor an older BSD-style licensed version of
+> it. Using this vendored version, your code regardless of whether it is testing
+> code or not, can remain BSD-style licensed.
+
+In case you want to make use of the upstream `tree-diff` package, you can depend
+on a slightly different library name:
+
+``` cabal
+test-suite ...
+  build-depends:
+    , quickcheck-state-machine:no-vendored-treediff
+```
+
+For this to compile properly, you will have to provide your own machinery to
+implement the `CanDiff` class with the upstream `tree-diff` definitions. You
+will have to implement something very similar to [this
+module](./tree-diff/Test/StateMachine/TreeDiff/Diffing.hs) (which is doing
+exactly this but with an old `tree-diff` version).
+
 ### How to contribute
 
 The `quickcheck-state-machine` library is still very experimental.

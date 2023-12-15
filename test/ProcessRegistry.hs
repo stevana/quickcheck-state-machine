@@ -80,6 +80,7 @@ import           Test.QuickCheck.Monadic
 
 import           Test.StateMachine
 import           Test.StateMachine.Labelling
+import           Test.StateMachine.TreeDiff
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
 

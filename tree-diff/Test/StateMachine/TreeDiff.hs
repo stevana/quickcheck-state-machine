@@ -16,6 +16,8 @@ module Test.StateMachine.TreeDiff (
     module Test.StateMachine.TreeDiff.Pretty,
     ) where
 
-import Test.StateMachine.TreeDiff.Expr
-import Test.StateMachine.TreeDiff.Class
-import Test.StateMachine.TreeDiff.Pretty
+import           Test.StateMachine.TreeDiff.Class
+import           Test.StateMachine.TreeDiff.Diffing
+                   ()
+import           Test.StateMachine.TreeDiff.Expr
+import           Test.StateMachine.TreeDiff.Pretty

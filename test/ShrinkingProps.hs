@@ -66,7 +66,6 @@ import           Test.StateMachine
 import qualified Test.StateMachine.Parallel    as QSM
 import qualified Test.StateMachine.Sequential  as QSM
 import           Test.StateMachine.TreeDiff
-                   (defaultExprViaShow)
 import qualified Test.StateMachine.Types       as QSM
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 import           Test.StateMachine.Utils

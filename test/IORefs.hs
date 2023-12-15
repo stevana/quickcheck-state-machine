@@ -29,6 +29,7 @@ import           Test.StateMachine
 import qualified Data.Map.Strict                   as Map
 
 import           Test.StateMachine.Lockstep.Simple
+import           Test.StateMachine.TreeDiff
 
 {-------------------------------------------------------------------------------
   Instantiate the simple API

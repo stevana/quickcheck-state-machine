@@ -24,13 +24,20 @@ extra-doc-files:
 
 tested-with:     GHC ==8.8.4 || ==8.10.7 || ==9.2.8 || ==9.4.7 || ==9.6.3
 
-library
+-- Due to `tree-diff` being `GPL`, this library makes use of an interface
+-- (@CanDiff@) to diff models. This can be implemented with the vendored
+-- tree-diff or with the upstream one, but we only provide the former in the
+-- main library of the package below. See
+-- https://github.com/stevana/quickcheck-state-machine#readme for how to depend
+-- on either version.
+library no-vendored-treediff
   hs-source-dirs:   src
   ghc-options:      -Wall
   exposed-modules:
     Test.StateMachine
     Test.StateMachine.BoxDrawer
     Test.StateMachine.ConstructorName
+    Test.StateMachine.Diffing
     Test.StateMachine.DotDrawing
     Test.StateMachine.Labelling
     Test.StateMachine.Lockstep.Auxiliary
@@ -39,12 +46,6 @@ library
     Test.StateMachine.Logic
     Test.StateMachine.Parallel
     Test.StateMachine.Sequential
-    Test.StateMachine.TreeDiff
-    Test.StateMachine.TreeDiff.Class
-    Test.StateMachine.TreeDiff.Expr
-    Test.StateMachine.TreeDiff.List
-    Test.StateMachine.TreeDiff.Pretty
-    Test.StateMachine.TreeDiff.Tree
     Test.StateMachine.Types
     Test.StateMachine.Types.Environment
     Test.StateMachine.Types.GenSym
@@ -53,9 +54,6 @@ library
     Test.StateMachine.Types.References
     Test.StateMachine.Utils
     Test.StateMachine.Z
-
-  other-modules:    Paths_quickcheck_state_machine
-  autogen-modules:  Paths_quickcheck_state_machine
 
   -- GHC boot library dependencies:
   -- (https://gitlab.haskell.org/ghc/ghc/-/blob/master/packages)
@@ -66,13 +64,11 @@ library
     , exceptions  >=0.8.3   && <0.11
     , filepath    >=1.0     && <1.5
     , mtl         >=2.2.1   && <2.4
-    , process     >=1.2.0.0 && <1.7
     , text        >=1.2.3.1 && <2.1
     , time        >=1.7     && <1.13
 
   build-depends:
     , ansi-wl-pprint  >=0.6.7.3     && <1.1
-    , generic-data    >=0.3.0.0     && <1.2
     , graphviz        >=2999.20.0.3 && <2999.21
     , pretty-show     >=1.6.16      && <1.11
     , QuickCheck      >=2.12        && <2.15
@@ -81,23 +77,72 @@ library
     , split           >=0.2.3.5     && <0.3
     , unliftio        >=0.2.7.0     && <0.3
 
+  default-language: Haskell2010
+
+library
+  hs-source-dirs:     tree-diff
+  ghc-options:        -Wall
+  exposed-modules:
+    Test.StateMachine.TreeDiff
+    Test.StateMachine.TreeDiff.Class
+    Test.StateMachine.TreeDiff.Diffing
+    Test.StateMachine.TreeDiff.Expr
+    Test.StateMachine.TreeDiff.List
+    Test.StateMachine.TreeDiff.Pretty
+    Test.StateMachine.TreeDiff.Tree
+
+  reexported-modules:
+    Test.StateMachine,
+    Test.StateMachine.BoxDrawer,
+    Test.StateMachine.ConstructorName,
+    Test.StateMachine.Diffing,
+    Test.StateMachine.DotDrawing,
+    Test.StateMachine.Labelling,
+    Test.StateMachine.Lockstep.Auxiliary,
+    Test.StateMachine.Lockstep.NAry,
+    Test.StateMachine.Lockstep.Simple,
+    Test.StateMachine.Logic,
+    Test.StateMachine.Parallel,
+    Test.StateMachine.Sequential,
+    Test.StateMachine.Types,
+    Test.StateMachine.Types.Environment,
+    Test.StateMachine.Types.GenSym,
+    Test.StateMachine.Types.History,
+    Test.StateMachine.Types.Rank2,
+    Test.StateMachine.Types.References,
+    Test.StateMachine.Utils,
+    Test.StateMachine.Z
+
+  -- GHC boot library dependencies:
+  -- (https://gitlab.haskell.org/ghc/ghc/-/blob/master/packages)
+  build-depends:
+    , base
+    , containers
+    , text
+    , time
+
+  build-depends:
+    , ansi-wl-pprint
+    , QuickCheck
+    , sop-core
+
   -- tree-diff dependencies:
   build-depends:
-    , base-compat   >=0.9.3    && <0.14
-    , bytestring    >=0.10.4.0 && <0.12
-    , generics-sop  >=0.3.1.0  && <0.6
-    , MemoTrie      >=0.6.8    && <0.7
-    , pretty        >=1.1.1.1  && <1.2
-    , vector        >=0.12.0.1 && <0.14
+    , base-compat                                    >=0.9.3    && <0.14
+    , bytestring                                     >=0.10.4.0 && <0.12
+    , generics-sop                                   >=0.3.1.0  && <0.6
+    , MemoTrie                                       >=0.6.8    && <0.7
+    , pretty                                         >=1.1.1.1  && <1.2
+    , quickcheck-state-machine:no-vendored-treediff
+    , vector                                         >=0.12.0.1 && <0.14
 
-  default-language: Haskell2010
+  default-language:   Haskell2010
 
 test-suite test
   type:             exitcode-stdio-1.0
   hs-source-dirs:   test
   main-is:          Spec.hs
   build-depends:
-    , aeson                     >=1.4.6.0  && <2.3
     , array                     >=0.5.4.0  && <0.6
     , base
     , bifunctors                >=5.5.7    && <5.7
@@ -116,7 +161,6 @@ test-suite test
     , persistent                >=2.10.5.2 && <2.15
     , persistent-postgresql     >=2.10.1.2 && <2.14
     , persistent-sqlite         >=2.10.6.2 && <2.14
-    , persistent-template       >=2.8.2.3  && <2.13
     , postgresql-simple         >=0.6.2    && <0.8
     , pretty-show
     , process
@@ -126,7 +170,6 @@ test-suite test
     , random
     , resource-pool             >=0.2.3.2  && <0.5
     , resourcet                 >=1.2.3    && <1.4
-    , servant                   >=0.16.2   && <0.21
     , servant-client            >=0.16.0.1 && <0.21
     , servant-server            >=0.16.2   && <0.21
     , split                     >=0.2.3.5  && <0.3
@@ -140,7 +183,6 @@ test-suite test
     , unliftio
     , unliftio-core             >=0.1.2.0  && <0.3
     , vector
-    , wai                       >=3.2.2.1  && <3.3
     , warp                      >=3.3.9    && <3.4
 
   other-modules:

@@ -9,14 +9,16 @@ module Test.StateMachine.TreeDiff.Expr (
     exprDiff,
     ) where
 
-import Prelude ()
-import Prelude.Compat
+import           Prelude
+                   ()
+import           Prelude.Compat
 
-import Data.Map           (Map)
-import Test.StateMachine.TreeDiff.List
+import           Data.Map
+                   (Map)
+import           Test.StateMachine.TreeDiff.List
 
-import qualified Data.Map        as Map
-import qualified Test.QuickCheck as QC
+import qualified Data.Map                        as Map
+import qualified Test.QuickCheck                 as QC
 
 -- | Constructor name is a string
 type ConstructorName = String

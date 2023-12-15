@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE DefaultSignatures   #-}
 {-# LANGUAGE FlexibleContexts    #-}
@@ -15,50 +14,61 @@ module Test.StateMachine.TreeDiff.Class (
     sopToExpr,
     ) where
 
-import Data.Foldable      (toList)
-import Data.Proxy         (Proxy (..))
-import Test.StateMachine.TreeDiff.Expr
-import Data.List.Compat      (uncons)
-import Generics.SOP
-       (All, All2, ConstructorInfo (..), DatatypeInfo (..), FieldInfo (..),
-       I (..), K (..), NP (..), SOP (..), constructorInfo, hcliftA2, hcmap,
-       hcollapse, mapIK)
-import Generics.SOP.GGP   (GCode, GDatatypeInfo, GFrom, gdatatypeInfo, gfrom)
-import GHC.Generics       (Generic)
+import           Data.Foldable
+                   (toList)
+import           Data.List.Compat
+                   (uncons)
+import           Data.Proxy
+                   (Proxy(..))
+import           Generics.SOP
+                   (All, All2, ConstructorInfo(..), DatatypeInfo(..),
+                   FieldInfo(..), I(..), K(..), NP(..), SOP(..),
+                   constructorInfo, hcliftA2, hcmap, hcollapse, mapIK)
+import           Generics.SOP.GGP
+                   (GCode, GDatatypeInfo, GFrom, gdatatypeInfo, gfrom)
+import           GHC.Generics
+                   (Generic)
+import           Test.StateMachine.TreeDiff.Expr
 
-import qualified Data.Map as Map
+import qualified Data.Map                        as Map
 
 -- Instances
-import Control.Applicative   (Const (..), ZipList (..))
-import Data.Fixed            (Fixed, HasResolution)
-import Data.Functor.Identity (Identity (..))
-import Data.Int
-import Data.List.NonEmpty    (NonEmpty (..))
-import Data.Void             (Void)
-import Data.Word
-import Numeric.Natural       (Natural)
+import           Control.Applicative
+                   (Const(..), ZipList(..))
+import           Data.Fixed
+                   (Fixed, HasResolution)
+import           Data.Functor.Identity
+                   (Identity(..))
+import           Data.Int
+import           Data.List.NonEmpty
+                   (NonEmpty(..))
+import           Data.Void
+                   (Void)
+import           Data.Word
+import           Numeric.Natural
+                   (Natural)
 
-import qualified Data.Monoid    as Mon
-import qualified Data.Ratio     as Ratio
-import qualified Data.Semigroup as Semi
+import qualified Data.Monoid                     as Mon
+import qualified Data.Ratio                      as Ratio
+import qualified Data.Semigroup                  as Semi
 
 -- containers
-import qualified Data.IntMap   as IntMap
-import qualified Data.IntSet   as IntSet
-import qualified Data.Sequence as Seq
-import qualified Data.Set      as Set
-import qualified Data.Tree     as Tree
+import qualified Data.IntMap                     as IntMap
+import qualified Data.IntSet                     as IntSet
+import qualified Data.Sequence                   as Seq
+import qualified Data.Set                        as Set
+import qualified Data.Tree                       as Tree
 
 -- text
-import qualified Data.Text      as T
-import qualified Data.Text.Lazy as LT
+import qualified Data.Text                       as T
+import qualified Data.Text.Lazy                  as LT
 
 -- time
-import qualified Data.Time as Time
+import qualified Data.Time                       as Time
 
 -- bytestring
-import qualified Data.ByteString       as BS
-import qualified Data.ByteString.Lazy  as LBS
+import qualified Data.ByteString                 as BS
+import qualified Data.ByteString.Lazy            as LBS
 -- import qualified Data.ByteString.Short as SBS
 
 -- scientific
@@ -68,10 +78,10 @@ import qualified Data.ByteString.Lazy  as LBS
 -- import qualified Data.UUID.Types as UUID
 
 -- vector
-import qualified Data.Vector           as V
-import qualified Data.Vector.Primitive as VP
-import qualified Data.Vector.Storable  as VS
-import qualified Data.Vector.Unboxed   as VU
+import qualified Data.Vector                     as V
+import qualified Data.Vector.Primitive           as VP
+import qualified Data.Vector.Storable            as VS
+import qualified Data.Vector.Unboxed             as VU
 
 -- tagged
 -- import Data.Tagged (Tagged (..))

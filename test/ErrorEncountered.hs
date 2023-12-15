@@ -26,6 +26,7 @@ import           Test.QuickCheck.Monadic
                    (monadicIO)
 
 import           Test.StateMachine
+import           Test.StateMachine.TreeDiff
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 import           Test.StateMachine.Z
 
