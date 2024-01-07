@@ -6,6 +6,8 @@
   [README](https://github.com/stevana/quickcheck-state-machine#using-quickcheck-state-machine-as-a-dependency)
   for more details on how to depend on either.
 
+* Support building with ghc-9.8.1.
+
 #### 0.8.0 (2023-11-17)
 
 * BREAKING CHANGE: Remove `markov-chain-usage-model` dependency and the related
