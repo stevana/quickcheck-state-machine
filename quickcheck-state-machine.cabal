@@ -13,7 +13,7 @@ maintainer:      Stevan Andjelkovic <stevan.andjelkovic@strath.ac.uk>
 copyright:
   Copyright (C) 2017-2018, ATS Advanced Telematic Systems GmbH;
   2018-2019, HERE Europe B.V.;
-  2019-2023, Stevan Andjelkovic.
+  2019-2024, Stevan Andjelkovic.
 
 category:        Testing
 build-type:      Simple
@@ -22,7 +22,8 @@ extra-doc-files:
   CONTRIBUTING.md
   README.md
 
-tested-with:     GHC ==8.8.4 || ==8.10.7 || ==9.2.8 || ==9.4.7 || ==9.6.3 || ==9.8.1
+tested-with:
+  GHC ==8.8.4 || ==8.10.7 || ==9.2.8 || ==9.4.7 || ==9.6.3 || ==9.8.1
 
 -- Due to `tree-diff` being `GPL`, this library makes use of an interface
 -- (@CanDiff@) to diff models. This can be implemented with the vendored
