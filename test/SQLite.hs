@@ -46,8 +46,7 @@ import           Data.Text
                    (Text, pack)
 import           Database.Persist
 import           Database.Persist.Sqlite
-import           Database.Sqlite               hiding
-                   (step, open')
+import           Database.Sqlite
 import           GHC.Generics
                    (Generic, Generic1)
 import           Prelude
@@ -161,7 +160,7 @@ lockstep model@Model {..} cmd resp = Event
     , eventMockResp = mockResp
     }
   where
-    (mockResp, dbModel') = step model cmd
+    (mockResp, dbModel') = stepModel model cmd
     newPerson = zip (getPers $ unAt resp) (getPers mockResp)
     newCars = zip (getCars $ unAt resp) (getCars mockResp)
 
@@ -196,10 +195,10 @@ canInsertP p ps =  personName p `notElem` (personName <$> ps)
 canInsertC :: Car -> [Car] -> Bool
 canInsertC c cs = carCid c `notElem` (carCid <$> cs)
 
-step :: Model r
-     -> At Cmd r
-     -> (Resp Int Int, DBModel)
-step Model{..} =  runPure dbModel
+stepModel :: Model r
+          -> At Cmd r
+          -> (Resp Int Int, DBModel)
+stepModel Model{..} =  runPure dbModel
 
 runPure :: DBModel -> At Cmd r -> (Resp Int Int, DBModel)
 runPure dbModel@DBModel{..} cmd  = case unAt cmd of
@@ -220,7 +219,7 @@ runPure dbModel@DBModel{..} cmd  = case unAt cmd of
 mockImpl :: Model Symbolic -> At Cmd Symbolic -> GenSym (At Resp Symbolic)
 mockImpl model cmdErr = At <$> bitraverse (const genSym) (const genSym) mockResp
     where
-        (mockResp, _model') = step model cmdErr
+        (mockResp, _model') = stepModel model cmdErr
 
 shrinkerImpl :: Model Symbolic -> At Cmd Symbolic -> [At Cmd Symbolic]
 shrinkerImpl _ _ = []
@@ -458,9 +457,14 @@ mkAsyncWithPool = AsyncWithPool
 
 createSqliteAsyncQueue :: (MonadLoggerIO m, MonadUnliftIO m)
                        => Text -> m (AsyncQueue SqlBackend)
-createSqliteAsyncQueue str = do
+createSqliteAsyncQueue str0 = do
     logFunc <- askLoggerIO
-    liftIO $ asyncQueueBound 1000 $ open' str logFunc
+    liftIO $ asyncQueueBound 1000 $ openWrap str0 logFunc
+  where
+    openWrap :: Text -> LogFunc -> IO SqlBackend
+    openWrap str logFunc = do
+        conn <- open str
+        wrapConnection conn logFunc `onException` close conn
 
 createSqliteAsyncPool :: (MonadLoggerIO m, MonadUnliftIO m)
     => Text -> Int -> m (AsyncWithPool SqlBackend)
@@ -468,11 +472,6 @@ createSqliteAsyncPool str n = do
     q <- createSqliteAsyncQueue str
     p <- createSqlitePool str n
     return $ mkAsyncWithPool q p
-
-open' :: Text -> LogFunc -> IO SqlBackend
-open' str logFunc = do
-    conn <- open str
-    wrapConnection conn logFunc `onException` close conn
 
 runSqlAsyncWrite :: MonadUnliftIO m => ReaderT SqlBackend m a -> AsyncWithPool SqlBackend -> m a
 runSqlAsyncWrite r a = runSqlAsyncQueue r (queue a)
