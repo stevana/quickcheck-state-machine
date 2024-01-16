@@ -80,3 +80,17 @@ jobs:
 
       - name: Build documentation
         run: cabal haddock all
+
+      - name: Create new git tag if .cabal version is bumped
+        uses: sol/haskell-autotag@v1
+        id: autotag
+
+      - name: Create tarball
+        run: cabal sdist
+
+      - uses: haskell-actions/hackage-publish@v1.1
+        with:
+          # http://hackage.haskell.org/users/account-management
+          hackageToken: ${{ secrets.HACKAGE_AUTH_TOKEN }}
+          publish: true
+        if: steps.autotag.outputs.created
