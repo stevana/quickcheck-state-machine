@@ -1,4 +1,4 @@
-#### 0.9.0 (????-??-??)
+#### 0.9.0 (2024-01-16)
 
 * Split the package into the machinery that abstracts over whichever diffing
   implementation is in use (via the `CanDiff` class), and the implementation of
