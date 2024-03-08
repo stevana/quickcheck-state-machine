@@ -368,6 +368,7 @@ toStateMachine sm@StateMachineTest{} = StateMachine {
     , mock          = symbolicResp  sm
     , cleanup       = cleanup       sm
     , invariant     = Nothing
+    , finalCheck    = pure Nothing
     }
 
 -- | Sequential test
@@ -378,7 +379,7 @@ prop_sequential :: forall t.
 prop_sequential sm@StateMachineTest{..} mMinSize =
     forAllCommands sm' mMinSize $ \cmds ->
       monadicIO $ do
-        (hist, _model, res) <- runCommands sm' cmds
+        (hist, _model, res, _prop) <- runCommands sm' cmds
         prettyCommands sm' hist
           $ tabulate "Tags" (map show $ tagCmds cmds)
           $ res === Ok

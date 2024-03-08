@@ -329,7 +329,7 @@ runCommands :: (Show (cmd Concrete), Show (resp Concrete))
             => (MonadMask m, MonadIO m)
             => StateMachine model cmd m resp
             -> Commands cmd resp
-            -> PropertyM m (History cmd resp, model Concrete, Reason)
+            -> PropertyM m (History cmd resp, model Concrete, Reason, Property)
 runCommands sm = runCommandsWithSetup (pure sm)
 
 runCommandsWithSetup :: (Show (cmd Concrete), Show (resp Concrete))
@@ -337,7 +337,7 @@ runCommandsWithSetup :: (Show (cmd Concrete), Show (resp Concrete))
                      => (MonadMask m, MonadIO m)
                      => m (StateMachine model cmd m resp)
                      -> Commands cmd resp
-                     -> PropertyM m (History cmd resp, model Concrete, Reason)
+                     -> PropertyM m (History cmd resp, model Concrete, Reason, Property)
 runCommandsWithSetup msm cmds = run $ runCommands' msm cmds
 
 runCommands' :: (Show (cmd Concrete), Show (resp Concrete))
@@ -345,10 +345,10 @@ runCommands' :: (Show (cmd Concrete), Show (resp Concrete))
              => (MonadMask m, MonadIO m)
              => m (StateMachine model cmd m resp)
              -> Commands cmd resp
-             -> m (History cmd resp, model Concrete, Reason)
+             -> m (History cmd resp, model Concrete, Reason, Property)
 runCommands' msm cmds = do
   hchan <- newTChanIO
-  (reason, (_, _, _, model)) <-
+  ((reason, prop), (_, _, _, model)) <-
     fst <$> generalBracket
               msm
               (\sm' ec -> case ec of
@@ -359,7 +359,7 @@ runCommands' msm cmds = do
                        (executeCommands sm' hchan (Pid 0) CheckEverything cmds)
                        (emptyEnvironment, initModel, newCounter, initModel))
   hist <- getChanContents hchan
-  return (History hist, model, reason)
+  return (History hist, model, reason, prop)
 
 -- We should try our best to not let this function fail,
 -- since it is used to cleanup resources, in parallel programs.
@@ -385,9 +385,11 @@ executeCommands :: (Show (cmd Concrete), Show (resp Concrete))
                 -> Pid
                 -> Check
                 -> Commands cmd resp
-                -> StateT (Environment, model Symbolic, Counter, model Concrete) m Reason
-executeCommands StateMachine {..} hchan pid check =
-  go . unCommands
+                -> StateT (Environment, model Symbolic, Counter, model Concrete) m (Reason, Property)
+executeCommands StateMachine {..} hchan pid check cmds = do
+  res <- go $ unCommands cmds
+  prop <- lift finalCheck
+  return (res, fromMaybe (property True) prop)
   where
     go []                           = return Ok
     go (Command scmd _ vars : cmds) = do
@@ -611,11 +613,11 @@ runSavedCommands :: (Show (cmd Concrete), Show (resp Concrete))
                  => (Read (cmd Symbolic), Read (resp Symbolic))
                  => StateMachine model cmd m resp
                  -> FilePath
-                 -> PropertyM m (Commands cmd resp, History cmd resp, model Concrete, Reason)
+                 -> PropertyM m (Commands cmd resp, History cmd resp, model Concrete, Reason, Property)
 runSavedCommands sm fp = do
   cmds <- read <$> liftIO (readFile fp)
-  (hist, model, res) <- runCommands sm cmds
-  return (cmds, hist, model, res)
+  (hist, model, res, prop) <- runCommands sm cmds
+  return (cmds, hist, model, res, prop)
 
 ------------------------------------------------------------------------
 

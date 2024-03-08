@@ -47,7 +47,7 @@ import           Data.Functor.Classes
 import           Data.Semigroup
 import           Prelude
 import           Test.QuickCheck
-                   (Gen)
+                   (Gen, Property)
 
 import           Test.StateMachine.Logic
 import           Test.StateMachine.Types.Environment
@@ -68,6 +68,7 @@ data StateMachine model cmd m resp = StateMachine
   , semantics      :: cmd Concrete -> m (resp Concrete)
   , mock           :: model Symbolic -> cmd Symbolic -> GenSym (resp Symbolic)
   , cleanup        :: model Concrete -> m ()
+  , finalCheck     :: m (Maybe Property)
   }
 
 noCleanup :: Monad m => model Concrete -> m ()
