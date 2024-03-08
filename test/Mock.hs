@@ -99,17 +99,17 @@ sm :: IO (StateMachine Model Command IO Response)
 sm = do
   counter <- newMVar 0
   pure $ StateMachine initModel transition precondition postcondition
-        Nothing generator shrinker (semantics counter) mock noCleanup
+        Nothing generator shrinker (semantics counter) mock noCleanup (pure Nothing)
 
 smUnused :: StateMachine Model Command IO Response
 smUnused = StateMachine initModel transition precondition postcondition
-        Nothing generator shrinker e mock noCleanup
+        Nothing generator shrinker e mock noCleanup (pure Nothing)
   where
     e = error "SUT must not be used"
 
 prop_sequential_mock :: Property
 prop_sequential_mock = forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-  (hist, _model, res) <- runCommandsWithSetup sm cmds
+  (hist, _model, res, _prop) <- runCommandsWithSetup sm cmds
   prettyCommands smUnused hist (res === Ok)
 
 prop_parallel_mock :: Property

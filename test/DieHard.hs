@@ -157,11 +157,11 @@ mock _ _ = return Done
 
 sm :: StateMachine Model Command IO Response
 sm = StateMachine initModel transitions preconditions postconditions
-       Nothing generator shrinker semantics mock noCleanup
+       Nothing generator shrinker semantics mock noCleanup (pure Nothing)
 
 prop_dieHard :: Property
 prop_dieHard = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
-  (hist, _model, res) <- runCommands sm cmds
+  (hist, _model, res, _prop) <- runCommands sm cmds
   prettyCommands sm hist (checkCommandNames cmds (res === Ok))
 
 -- If we run @quickCheck prop_dieHard@ we get:

@@ -200,11 +200,12 @@ sm se = do
   lock <- setupLock
   pure $ StateMachine initModel transitions preconditions postconditions
          Nothing generator shrinker (semantics se lock) mock (const $ cleanupLock lock)
+         (pure Nothing)
 
 smUnused :: StateMachine Model Action IO Response
 smUnused =
   StateMachine initModel transitions preconditions postconditions
-         Nothing generator shrinker e mock noCleanup
+         Nothing generator shrinker e mock noCleanup (pure Nothing)
  where
    e = error "SUT must not be used"
 
@@ -214,7 +215,7 @@ smUnused =
 prop_ticketDispenser :: Property
 prop_ticketDispenser =
   forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-      (hist, _, res) <- runCommandsWithSetup (sm Shared) cmds
+      (hist, _, res, _prop) <- runCommandsWithSetup (sm Shared) cmds
       prettyCommands smUnused hist $
         checkCommandNames cmds (res === Ok)
 

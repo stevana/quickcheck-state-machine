@@ -76,7 +76,7 @@ output (Env mBuf) = atomically $ do
 
 prop_echoOK :: Property
 prop_echoOK = forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-    (hist, _, res) <- runCommandsWithSetup echoSM cmds
+    (hist, _, res, _prop) <- runCommandsWithSetup echoSM cmds
     prettyCommands smUnused hist (res === Ok)
 
 prop_echoParallelOK :: Property
@@ -99,6 +99,7 @@ smUnused = StateMachine
     , QC.semantics = e
     , QC.mock = Echo.mock
     , cleanup = noCleanup
+    , finalCheck = pure Nothing
     }
   where
     e = error "SUT must not be used"
@@ -117,6 +118,7 @@ echoSM  = do
     , QC.semantics = Echo.semantics env
     , QC.mock = Echo.mock
     , cleanup = noCleanup
+    , finalCheck = pure Nothing
     }
 
 transitions :: Model r -> Action r -> Response r -> Model r

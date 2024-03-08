@@ -427,7 +427,7 @@ mock m act = case act of
 
 sm :: StateMachine Model Action IO Response
 sm = StateMachine initModel transition precondition postcondition
-       Nothing generator shrinker semantics mock noCleanup
+       Nothing generator shrinker semantics mock noCleanup (pure Nothing)
 
 ------------------------------------------------------------------------
 
@@ -529,7 +529,7 @@ printLabelledExamples = showLabelledExamples sm tag
 prop_processRegistry :: Property
 prop_processRegistry = forAllCommands sm (Just 100000) $ \cmds -> monadicIO $ do
   liftIO ioReset
-  (hist, _model, res) <- runCommands sm cmds
+  (hist, _model, res, _prop) <- runCommands sm cmds
 
   let reqs = tag (execCmds sm cmds)
 

@@ -141,11 +141,11 @@ shrinker _ _             = []
 
 sm :: StateMachine Model Command IO Response
 sm = StateMachine initModel transition precondition postcondition
-         Nothing generator shrinker semantics mock noCleanup
+         Nothing generator shrinker semantics mock noCleanup (pure Nothing)
 
 prop_error_sequential :: Property
 prop_error_sequential = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
-  (hist, _model, res) <- runCommands sm cmds
+  (hist, _model, res, _prop) <- runCommands sm cmds
   prettyCommands sm hist (checkCommandNames cmds (res === Ok))
 
 prop_error_parallel :: Property

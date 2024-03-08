@@ -200,11 +200,11 @@ shrinker _ _             = []
 
 sm :: Bug -> StateMachine Model Command IO Response
 sm bug = StateMachine initModel transition precondition postcondition
-           Nothing generator shrinker (semantics bug) mock noCleanup
+           Nothing generator shrinker (semantics bug) mock noCleanup (pure Nothing)
 
 prop_sequential :: Bug -> Property
 prop_sequential bug = forAllCommands sm' Nothing $ \cmds -> monadicIO $ do
-  (hist, _model, res) <- runCommands sm' cmds
+  (hist, _model, res, _prop) <- runCommands sm' cmds
   prettyCommands sm' hist (saveCommands "/tmp" cmds
                              (coverCommandNames cmds $ checkCommandNames cmds (res === Ok)))
     where
@@ -212,7 +212,7 @@ prop_sequential bug = forAllCommands sm' Nothing $ \cmds -> monadicIO $ do
 
 prop_runSavedCommands :: Bug -> FilePath -> Property
 prop_runSavedCommands bug fp = monadicIO $ do
-  (_cmds, hist, _model, res) <- runSavedCommands (sm bug) fp
+  (_cmds, hist, _model, res, _prop) <- runSavedCommands (sm bug) fp
   prettyCommands (sm bug) hist (res === Ok)
 
 prop_parallel :: Bug -> Property
@@ -243,7 +243,7 @@ prop_nparallel bug np = forAllNParallelCommands sm' np $ \cmds ->
 
 prop_precondition :: Property
 prop_precondition = once $ monadicIO $ do
-  (hist, _model, res) <- runCommands sm' cmds
+  (hist, _model, res, _prop) <- runCommands sm' cmds
   prettyCommands sm' hist
     (res === PreconditionFailed "PredicateC (NotMember (Reference (Symbolic (Var 0))) [])")
     where
@@ -253,7 +253,7 @@ prop_precondition = once $ monadicIO $ do
 
 prop_existsCommands :: Property
 prop_existsCommands = existsCommands sm' gens $ \cmds -> monadicIO $ do
-  (hist, _model, res) <- runCommands sm' cmds
+  (hist, _model, res, _prop) <- runCommands sm' cmds
   prettyCommands sm' hist (checkCommandNames cmds (res === Ok))
   where
     sm'  = sm None
