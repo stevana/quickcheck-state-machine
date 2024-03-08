@@ -68,7 +68,7 @@ data StateMachine model cmd m resp = StateMachine
   , semantics      :: cmd Concrete -> m (resp Concrete)
   , mock           :: model Symbolic -> cmd Symbolic -> GenSym (resp Symbolic)
   , cleanup        :: model Concrete -> m ()
-  , finalCheck     :: m (Maybe Property)
+  , finalCheck     :: Maybe (m Property)
   }
 
 noCleanup :: Monad m => model Concrete -> m ()

@@ -200,12 +200,12 @@ sm se = do
   lock <- setupLock
   pure $ StateMachine initModel transitions preconditions postconditions
          Nothing generator shrinker (semantics se lock) mock (const $ cleanupLock lock)
-         (pure Nothing)
+         Nothing
 
 smUnused :: StateMachine Model Action IO Response
 smUnused =
   StateMachine initModel transitions preconditions postconditions
-         Nothing generator shrinker e mock noCleanup (pure Nothing)
+         Nothing generator shrinker e mock noCleanup Nothing
  where
    e = error "SUT must not be used"
 

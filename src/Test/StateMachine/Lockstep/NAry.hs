@@ -368,7 +368,7 @@ toStateMachine sm@StateMachineTest{} = StateMachine {
     , mock          = symbolicResp  sm
     , cleanup       = cleanup       sm
     , invariant     = Nothing
-    , finalCheck    = pure Nothing
+    , finalCheck    = Nothing
     }
 
 -- | Sequential test

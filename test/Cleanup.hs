@@ -219,11 +219,11 @@ sm counter ref bug dc = do
   createDirectory testDir
   pure $ StateMachine (initModel counter ref testDir) transition precondition postcondition
            Nothing generator shrinker (semantics counter ref testDir bug) mock (cleanup dc)
-           (pure Nothing)
+           Nothing
 
 smUnused :: StateMachine Model Command IO Response
 smUnused = StateMachine (initModel f e "generator") transition precondition postcondition
-           Nothing generator shrinker (semantics e e e e) mock (cleanup e) (pure Nothing)
+           Nothing generator shrinker (semantics e e e e) mock (cleanup e) Nothing
  where
    e = error "SUT must not be used"
    f = error "SUT must not be useddd"

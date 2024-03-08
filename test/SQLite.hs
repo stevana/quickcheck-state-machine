@@ -301,7 +301,7 @@ sm folder = do
    , cleanup       = \model -> do
        liftIO $ closeSqlAsyncPool poolBackend
        clean folder model
-   , finalCheck    = pure Nothing
+   , finalCheck    = Nothing
    }
 
 smUnused :: StateMachine Model (At Cmd) IO (At Resp)
@@ -317,7 +317,7 @@ smUnused =
    , semantics     = e
    , mock          = mockImpl
    , cleanup       = e
-   , finalCheck    = pure Nothing
+   , finalCheck    = Nothing
    }
  where
    e = error "SUT must not be used"

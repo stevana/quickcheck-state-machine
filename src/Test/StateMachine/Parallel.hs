@@ -99,8 +99,8 @@ import           Data.Tree
                    (Tree(Node))
 import           Prelude
 import           Test.QuickCheck
-                   (Gen, Property, Testable, choose, conjoin,
-                   forAllShrinkShow, property, sized, (.&&.), (.||.))
+                   (Gen, Property, Testable, choose, forAllShrinkShow,
+                   property, sized, (.&&.))
 import           Test.QuickCheck.Monadic
                    (PropertyM, run)
 import           Text.PrettyPrint.ANSI.Leijen
@@ -651,23 +651,24 @@ executeParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
                         -> m (History cmd resp, model Concrete, Reason, Reason, Property)
 executeParallelCommands sm@StateMachine{ initModel, finalCheck } (ParallelCommands prefix suffixes) hchan stopOnError = do
 
-  ((reason0, prop0), (env0, _smodel, _counter, cmodel)) <- runStateT
+  (reason0, (env0, _smodel, _counter, cmodel)) <- runStateT
       (executeCommands sm hchan (Pid 0) CheckEverything prefix)
       (emptyEnvironment, initModel, newCounter, initModel)
   if reason0 /= Ok
   then do
     hist <- getChanContents hchan
-    return (History hist, cmodel, reason0, reason0, prop0)
+    prop <- fromMaybe (pure $ property True) finalCheck
+    return (History hist, cmodel, reason0, reason0, prop)
   else do
     (reason1, reason2, _) <- go (Ok, Ok, env0) suffixes
     hist <- getChanContents hchan
-    prop <- fromMaybe (property True) <$> finalCheck
+    prop <- fromMaybe (pure $ property True) finalCheck
     return (History hist, cmodel, reason1, reason2, prop)
   where
     go res []                         = return res
     go (Ok, Ok, env) (Pair cmds1 cmds2 : pairs) = do
 
-      (((reason1,_), (env1, _, _, _)), ((reason2,_), (env2, _, _, _))) <- concurrently
+      ((reason1, (env1, _, _, _)), (reason2, (env2, _, _, _))) <- concurrently
 
         -- XXX: Post-conditions not checked, so we can pass in initModel here...
         -- It would be better if we made executeCommands take a Maybe Environment
@@ -700,7 +701,7 @@ executeParallelCommands sm@StateMachine{ initModel, finalCheck } (ParallelComman
       -- will never get executed, and so there could be a bug in @Write@ that
       -- never gets discovered. Not sure if we can do something better here?
       --
-      ((reason1, _), (env1, _, _, _)) <- runStateT (executeCommands sm hchan (Pid 1) CheckPrecondition cmds1)
+      (reason1, (env1, _, _, _)) <- runStateT (executeCommands sm hchan (Pid 1) CheckPrecondition cmds1)
                                               (env, initModel, newCounter, initModel)
       go ( reason1
          , ExceptionThrown e
@@ -708,7 +709,7 @@ executeParallelCommands sm@StateMachine{ initModel, finalCheck } (ParallelComman
          ) pairs
     go (ExceptionThrown e, Ok, env) (Pair _cmds1 cmds2 : pairs) = do
 
-      ((reason2, _), (env2, _, _, _)) <- runStateT (executeCommands sm hchan (Pid 2) CheckPrecondition cmds2)
+      (reason2, (env2, _, _, _)) <- runStateT (executeCommands sm hchan (Pid 2) CheckPrecondition cmds2)
                                               (env, initModel, newCounter, initModel)
       go ( ExceptionThrown e
          , reason2
@@ -733,17 +734,18 @@ executeNParallelCommands :: (Rank2.Traversable cmd, Show (cmd Concrete), Rank2.F
                          -> Bool
                          -> m (History cmd resp, model Concrete, Reason, Property)
 executeNParallelCommands sm@StateMachine{ initModel, finalCheck } (ParallelCommands prefix suffixes) hchan stopOnError = do
-  ((reason0, prop0), (env0, _smodel, _counter, cmodel)) <- runStateT
+  (reason0, (env0, _smodel, _counter, cmodel)) <- runStateT
       (executeCommands sm hchan (Pid 0) CheckEverything prefix)
       (emptyEnvironment, initModel, newCounter, initModel)
   if reason0 /= Ok
   then do
     hist <- getChanContents hchan
-    return (History hist, cmodel, reason0, prop0)
+    prop <- fromMaybe (pure $ property True) finalCheck
+    return (History hist, cmodel, reason0, prop)
   else do
     (errors, _) <- go (Map.empty, env0) suffixes
     hist <- getChanContents hchan
-    prop <- fromMaybe (property True) <$> finalCheck
+    prop <- fromMaybe (pure $ property True) finalCheck
     return (History hist, cmodel, combineReasons $ Map.elems errors, prop)
   where
     go res [] = return res
@@ -756,7 +758,7 @@ executeNParallelCommands sm@StateMachine{ initModel, finalCheck } (ParallelComma
       res <- forConcurrently (zip [1..] suffix) $ \(i, cmds) ->
         case Map.lookup i previousErrors of
           Nothing -> do
-              ((reason, _prop), (env', _, _, _)) <- runStateT (executeCommands sm hchan (Pid i) check cmds) (env, initModel, newCounter, initModel)
+              (reason, (env', _, _, _)) <- runStateT (executeCommands sm hchan (Pid i) check cmds) (env, initModel, newCounter, initModel)
               return (if isOK reason then Nothing else Just (i, reason), env')
           Just _  -> return (Nothing, env)
       let newErrors = Map.fromList $ mapMaybe fst res
@@ -815,13 +817,13 @@ prettyParallelCommandsWithOpts :: (MonadIO m, Rank2.Foldable cmd)
                               -> [(History cmd resp, a, Logic, Property)] -- ^ Output of 'runParallelCommands'.
                               -> PropertyM m ()
 prettyParallelCommandsWithOpts cmds mGraphOptions histories = do
-  mapM_ (\(h, _, l, p) -> printCounterexample h (logic l) p `whenFailM` (property (boolean l) .&&. p)) histories
+  mapM_ (\(h, _, l, p) -> printCounterexample h (logic l) `whenFailM` (property (boolean l) .&&. p)) histories
     where
-      printCounterexample hist' l p = do
+      printCounterexample hist' l = do
         let
           printFailure = case l of
             -- The property failed because there was at least one failing repition of the sequence of commands
-            VFalse ce -> PP.string $
+            VFalse _ -> PP.string $
               if or [ boolean l | (_, _, l, _) <- histories]
               then "However, some repetitions of this sequence of commands passed. Maybe there is a race condition?"
               else "And all repetitions of this sequence of commands failed. Maybe there is a logic bug? Try with more repetitions to be sure that it happens consistently"
@@ -872,13 +874,13 @@ prettyNParallelCommandsWithOpts :: (Show (cmd Concrete), Show (resp Concrete))
                                 -> [(History cmd resp, a, Logic, Property)] -- ^ Output of 'runNParallelCommands'.
                                 -> PropertyM m ()
 prettyNParallelCommandsWithOpts cmds mGraphOptions histories =
-   mapM_ (\(h, _, l, p) -> printCounterexample h (logic l) p `whenFailM` (property (boolean l) .&&. p)) histories
+   mapM_ (\(h, _, l, p) -> printCounterexample h (logic l)`whenFailM` (property (boolean l) .&&. p)) histories
     where
-      printCounterexample hist' l p = do
+      printCounterexample hist' l = do
         let
           printFailure = case l of
             -- The property failed because there was at least one failing repition of the sequence of commands
-            VFalse ce -> PP.string $
+            VFalse _ -> PP.string $
               if or [ boolean l | (_, _, l, _) <- histories]
               then "However, some repetitions of this sequence of commands passed. Maybe there is a race condition?"
               else "And all repetitions of this sequence of commands failed. Maybe there is a logic bug? Try with more repetitions to be sure that it happens consistently"

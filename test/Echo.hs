@@ -99,7 +99,7 @@ smUnused = StateMachine
     , QC.semantics = e
     , QC.mock = Echo.mock
     , cleanup = noCleanup
-    , finalCheck = pure Nothing
+    , finalCheck = Nothing
     }
   where
     e = error "SUT must not be used"
@@ -118,7 +118,7 @@ echoSM  = do
     , QC.semantics = Echo.semantics env
     , QC.mock = Echo.mock
     , cleanup = noCleanup
-    , finalCheck = pure Nothing
+    , finalCheck = Nothing
     }
 
 transitions :: Model r -> Action r -> Response r -> Model r

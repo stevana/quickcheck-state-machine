@@ -427,7 +427,7 @@ mock m act = case act of
 
 sm :: StateMachine Model Action IO Response
 sm = StateMachine initModel transition precondition postcondition
-       Nothing generator shrinker semantics mock noCleanup (pure Nothing)
+       Nothing generator shrinker semantics mock noCleanup Nothing
 
 ------------------------------------------------------------------------
 

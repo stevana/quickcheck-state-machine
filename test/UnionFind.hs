@@ -221,7 +221,7 @@ shrinker _ _       = []
 
 sm :: StateMachine Model Command IO Response
 sm = StateMachine initModel transition precondition postcondition
-         Nothing generator shrinker semantics mock noCleanup (pure Nothing)
+         Nothing generator shrinker semantics mock noCleanup Nothing
 
 prop_unionFindSequential :: Property
 prop_unionFindSequential =

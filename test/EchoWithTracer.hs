@@ -150,7 +150,7 @@ smUnused = StateMachine
     , QC.semantics = e
     , QC.mock = EchoWithTracer.mock
     , cleanup = noCleanup
-    , finalCheck = pure Nothing
+    , finalCheck = Nothing
     }
   where
     e = error "SUT must not be used"
@@ -169,7 +169,7 @@ echoWithTracerSM tr = do
     , QC.semantics = EchoWithTracer.semantics env tr
     , QC.mock = EchoWithTracer.mock
     , cleanup = noCleanup
-    , finalCheck = pure $ Just $ property False -- Nothing
+    , finalCheck = Nothing
     }
 
 echoWithTracerSM' :: IO (StateMachine Model Action IO Response)
@@ -187,11 +187,11 @@ echoWithTracerSM' = do
     , QC.semantics = EchoWithTracer.semantics env tracer
     , QC.mock = EchoWithTracer.mock
     , cleanup = noCleanup
-    , finalCheck = do
+    , finalCheck = Just $ do
         finalCount <- readTVarIO $ count env
         traces <- getTraces
         let countInTraces = countTraceIns traces
-        pure $ Just $ counterexample ("More 'In's in traces ("<> show countInTraces <> ") than in model (" <> show finalCount <> ")")  $
+        pure $ counterexample ("More 'In's in traces ("<> show countInTraces <> ") than in model (" <> show finalCount <> ")")  $
             finalCount == countInTraces -- || finalCount == (countInTraces - 1)
     }
 

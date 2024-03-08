@@ -61,7 +61,7 @@ import           Control.Exception
                    (SomeAsyncException(..), SomeException,
                    displayException, fromException)
 import           Control.Monad
-                   (when)
+                   (when, join)
 import           Control.Monad.Catch
                    (ExitCase(..), MonadCatch(..), MonadMask(..), catch)
 import           Control.Monad.State.Strict
@@ -348,7 +348,7 @@ runCommands' :: (Show (cmd Concrete), Show (resp Concrete))
              -> m (History cmd resp, model Concrete, Reason, Property)
 runCommands' msm cmds = do
   hchan <- newTChanIO
-  ((reason, prop), (_, _, _, model)) <-
+  (reason, (_, _, _, model)) <-
     fst <$> generalBracket
               msm
               (\sm' ec -> case ec of
@@ -359,6 +359,7 @@ runCommands' msm cmds = do
                        (executeCommands sm' hchan (Pid 0) CheckEverything cmds)
                        (emptyEnvironment, initModel, newCounter, initModel))
   hist <- getChanContents hchan
+  prop <- join $ fromMaybe (pure $ property True) . finalCheck <$> msm
   return (History hist, model, reason, prop)
 
 -- We should try our best to not let this function fail,
@@ -385,11 +386,9 @@ executeCommands :: (Show (cmd Concrete), Show (resp Concrete))
                 -> Pid
                 -> Check
                 -> Commands cmd resp
-                -> StateT (Environment, model Symbolic, Counter, model Concrete) m (Reason, Property)
-executeCommands StateMachine {..} hchan pid check cmds = do
-  res <- go $ unCommands cmds
-  prop <- lift finalCheck
-  return (res, fromMaybe (property True) prop)
+                -> StateT (Environment, model Symbolic, Counter, model Concrete) m Reason
+executeCommands StateMachine {..} hchan pid check = do
+  go . unCommands
   where
     go []                           = return Ok
     go (Command scmd _ vars : cmds) = do

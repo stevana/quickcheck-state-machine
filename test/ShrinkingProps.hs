@@ -347,7 +347,7 @@ sm = QSM.StateMachine {
        , mock          = mock
        , invariant     = Nothing
        , cleanup       = noCleanup
-       , finalCheck    = pure $ Nothing
+       , finalCheck    = Nothing
        }
 
 {-------------------------------------------------------------------------------

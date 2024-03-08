@@ -350,7 +350,7 @@ mock (Model m) act = case act of
 
 sm :: StateMachine Model Action (ReaderT ClientEnv IO) Response
 sm = StateMachine initModel transitions preconditions postconditions
-       Nothing generator shrinker semantics mock noCleanup (pure Nothing)
+       Nothing generator shrinker semantics mock noCleanup Nothing
 
 ------------------------------------------------------------------------
 -- * Sequential property

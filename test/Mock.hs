@@ -99,11 +99,11 @@ sm :: IO (StateMachine Model Command IO Response)
 sm = do
   counter <- newMVar 0
   pure $ StateMachine initModel transition precondition postcondition
-        Nothing generator shrinker (semantics counter) mock noCleanup (pure Nothing)
+        Nothing generator shrinker (semantics counter) mock noCleanup Nothing
 
 smUnused :: StateMachine Model Command IO Response
 smUnused = StateMachine initModel transition precondition postcondition
-        Nothing generator shrinker e mock noCleanup (pure Nothing)
+        Nothing generator shrinker e mock noCleanup Nothing
   where
     e = error "SUT must not be used"
 
