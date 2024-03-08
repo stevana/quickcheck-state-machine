@@ -25,6 +25,7 @@ import           Cleanup
 import qualified CrudWebserverDb          as WS
 import           DieHard
 import           Echo
+import           EchoWithTracer
 import           ErrorEncountered
 import           Hanoi
 import           IORefs
@@ -193,6 +194,14 @@ tests docker0 = testGroup "Tests"
       , testProperty "2-Parallel" (prop_echoNParallelOK 2)
       , testProperty "3-Parallel" (prop_echoNParallelOK 3)
       ]
+  , testGroup "EchoWithTracer"
+    [ testProperty "Sequential" prop_echoWithTracerSequentialOK
+    , testProperty "ParallelFail" (expectFailure prop_echoWithTracerParallelFail)
+    , testProperty "ParallelOK" prop_echoWithTracerParallelOK
+    , testProperty "NParallelFail"
+      (expectFailure $ prop_echoWithTracerNParallelFail 100)
+    , testProperty "NParallelOK" $ prop_echoWithTracerNParallelOK 100
+    ]
   -- XXX: The generator function needs to be reimplemented.
   -- , testGroup "ProcessRegistry"
   --     [ testProperty "Sequential" prop_processRegistry

@@ -194,6 +194,7 @@ test-suite test
     CrudWebserverDb
     DieHard
     Echo
+    EchoWithTracer
     ErrorEncountered
     Hanoi
     IORefs
