@@ -39,11 +39,9 @@ import           System.IO
 import           System.Random
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
-                   (monadicIO)
+                   (monadicIO, run)
 import           Test.StateMachine
 import           Test.StateMachine.TreeDiff
-import qualified Test.StateMachine.Types       as QSM
-                   (initModel)
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 import           Test.StateMachine.Utils
                    (liftProperty, mkModel, whenFailM)
@@ -92,14 +90,13 @@ data Model r = Model {
     , semanticsCounter :: Opaque (MVar Int)
     , ref              :: Opaque (MVar Int)
     , value            :: Int
-    , modelTestDir     :: String
   }
   deriving stock (Generic, Show, Eq)
 
 instance ToExpr (Model Symbolic)
 instance ToExpr (Model Concrete)
 
-initModel :: MVar Int -> MVar Int -> String -> Model r
+initModel :: MVar Int -> MVar Int -> Model r
 initModel sc ref = Model Map.empty 0 (Opaque sc) (Opaque ref) 0
 
 transition :: Ord1 r => Model r -> Command r -> Response r -> Model r
@@ -139,7 +136,7 @@ removeFileRef :: DoubleCleanup -> FileRef -> IO ()
 removeFileRef dc (MVarC r _) = modifyMVar_ r $ \(file, isHere) -> do
       case (isHere, dc) of
         (_, ReDo)     -> removeFile file
-        (True, _)     -> removeFile file
+        (True, NoOp)  -> removeFile file
         (False, NoOp) -> return ()
       return (file, False)
 
@@ -201,63 +198,71 @@ generator Model{..} = Just $ do
 shrinker :: Model Symbolic -> Command Symbolic -> [Command Symbolic]
 shrinker _ _             = []
 
-cleanup :: DoubleCleanup -> Model Concrete -> IO ()
-cleanup dc Model{..} = do
+cleanup :: String -> DoubleCleanup -> Model Concrete -> IO ()
+cleanup testDir dc Model{..} = do
     let cl = do
             forM_ (Map.keys files) $ \rf ->
                 removeFileRef dc $ unOpaque $ concrete rf
             modifyMVar_ (unOpaque semanticsCounter) (\_ -> return 0)
             modifyMVar_ (unOpaque ref) (\_ -> return 0)
-    cl `finally` removePathForcibly modelTestDir
+    -- onException here does not affect any tests. It just makes sure
+    -- no leftover directories remain after the end of tests.
+    -- We have it here, because we found no other way to handle the
+    -- exceptions in the PropertyM level.
+    cl `onException` removePathForcibly testDir
 
-sm :: MVar Int -> MVar Int -> Bug -> DoubleCleanup -> IO (StateMachine Model Command IO Response)
-sm counter ref bug dc = do
-  folderId :: Word <- randomIO
-  let testDir = testDirectoryBase ++ "-" ++ show folderId
-  exist <- doesDirectoryExist testDir
-  when exist $ removePathForcibly testDir
-  createDirectory testDir
-  pure $ StateMachine (initModel counter ref testDir) transition precondition postcondition
-           Nothing generator shrinker (semantics counter ref testDir bug) mock (cleanup dc)
+sm :: MVar Int -> MVar Int -> String -> Bug -> DoubleCleanup -> StateMachine Model Command IO Response
+sm counter ref tstDir bug dc = StateMachine (initModel counter ref) transition precondition postcondition
+           Nothing generator shrinker (semantics counter ref tstDir bug) mock (cleanup tstDir dc)
 
 smUnused :: StateMachine Model Command IO Response
-smUnused = StateMachine (initModel f e "generator") transition precondition postcondition
-           Nothing generator shrinker (semantics e e e e) mock (cleanup e)
- where
-   e = error "SUT must not be used"
-   f = error "SUT must not be useddd"
+smUnused = sm e e e e e
+  where
+    e = error "SUT must not be used"
+
+mkEnv :: MonadIO m
+      => Bug
+      -> DoubleCleanup
+      -> m (StateMachine Model Command IO Response, [Char])
+mkEnv bug dc = do
+    -- ideally this would use System.IO.Temp.withTempDirectory
+    -- but it is not possible at the moment, see:
+    -- https://github.com/hedgehogqa/haskell-hedgehog/issues/182
+    folderId :: Word <- liftIO randomIO
+    let testDir = testDirectoryBase ++ "-" ++ show folderId
+    liftIO $ do
+        removePathForcibly testDir
+        createDirectory testDir
+    c <- liftIO $ newMVar 0
+    ref <- liftIO $ newMVar 0
+    let sm' = sm c ref testDir bug dc
+    pure (sm', testDir)
 
 prop_sequential_clean :: FinalTest -> Bug -> DoubleCleanup -> Property
 prop_sequential_clean testing bug dc = forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-    counter <- liftIO $ newMVar 0
-    ref <- liftIO $ newMVar 0
-    let sm' = sm counter ref bug dc
-    (hist, model, res) <- runCommandsWithSetup sm' cmds
+    (sm', testDir) <- run $ mkEnv bug dc
+    (hist, model, res) <- runCommands sm' cmds
+    ls <- liftIO $ listDirectory testDir
+    liftIO $ removePathForcibly testDir
     case testing of
-        Regular -> prettyCommands smUnused hist $ checkCommandNames cmds (res === Ok)
-        Files   -> do
-          ex <- property . not <$> (liftIO $ doesDirectoryExist $ modelTestDir model)
-          (do
-              ls <- liftIO $ listDirectory $ modelTestDir model
-              printFiles ls) `whenFailM` ex
-        Eq _    -> liftProperty $ mkModel smUnused { QSM.initModel = initModel counter ref (modelTestDir model) } hist === model
+         Regular -> prettyCommands smUnused hist $ checkCommandNames cmds (res === Ok)
+         Files   -> printFiles ls `whenFailM` (ls === [])
+         Eq _    -> liftProperty $ mkModel sm' hist === model
 
 prop_parallel_clean :: FinalTest -> Bug -> DoubleCleanup -> Property
 prop_parallel_clean testing bug dc = forAllParallelCommands smUnused Nothing $ \cmds -> monadicIO $ do
-    counter <- liftIO $ newMVar 0
-    ref <- liftIO $ newMVar 0
-    let sm' = sm counter ref bug dc
-    ret <- runParallelCommandsNTimesWithSetup 2 sm' cmds
+    [(ret1, ls1), (ret2, ls2)] <-
+      replicateM 2 $ do
+        (sm', testDir) <- run $ mkEnv bug dc
+        ret <- runParallelCommands sm' cmds
+        ls <- liftIO $ listDirectory testDir
+        liftIO $ removePathForcibly testDir
+        pure (ret, ls)
     case testing of
-        Regular -> prettyParallelCommands cmds ret
-        Files   ->
-          mapM_ (\(_, model, _) -> do
-                    ex <- property . not <$> (liftIO $ doesDirectoryExist $ modelTestDir model)
-                    (do
-                        ls <- liftIO $ listDirectory $ modelTestDir model
-                        printFiles ls) `whenFailM` ex) ret
+        Regular -> prettyParallelCommands cmds ret1 >> prettyParallelCommands cmds ret2
+        Files   -> mapM_ (\l -> printFiles l `whenFailM` (l === [])) [ls1, ls2]
         Eq bl   -> do
-            let (a, b) = case mkModel smUnused . (\(h, _, _) -> h) <$> ret of
+            let (a, b) = case mkModel smUnused . (\(h, _, _) -> h) <$> [ret1, ret2] of
                     (x : y : _) -> (x,y)
                     _           -> error "expected at least two histories"
             liftProperty $ printModels a b `whenFail`
@@ -265,20 +270,19 @@ prop_parallel_clean testing bug dc = forAllParallelCommands smUnused Nothing $ \
 
 prop_nparallel_clean :: Int -> FinalTest -> Bug -> DoubleCleanup -> Property
 prop_nparallel_clean np testing bug dc = forAllNParallelCommands smUnused np $ \cmds -> monadicIO $ do
-    counter <- liftIO $ newMVar 0
-    ref <- liftIO $ newMVar 0
-    let sm' = sm counter ref bug dc
-    ret <- runNParallelCommandsNTimesWithSetup 2 sm' cmds -- This 2 is there just to have two histories later on!
+    [(ret1, ls1), (ret2, ls2)] <-
+      replicateM 2 $ do
+        (sm', testDir) <- run $ mkEnv bug dc
+        ret <- runNParallelCommands sm' cmds
+        ls <- liftIO $ listDirectory testDir
+        liftIO $ removePathForcibly testDir
+        pure (ret, ls)
+
     case testing of
-        Regular -> prettyNParallelCommands cmds ret
-        Files   ->
-          mapM_ (\(_, model, _) -> do
-                    ex <- property . not <$> (liftIO $ doesDirectoryExist $ modelTestDir model)
-                    (do
-                        ls <- liftIO $ listDirectory $ modelTestDir model
-                        printFiles ls) `whenFailM` ex) ret
+        Regular -> mapM_ (prettyNParallelCommands cmds) [ret1, ret2]
+        Files   -> mapM_ (\l -> printFiles l `whenFailM` (l === [])) [ls1, ls2]
         Eq bl   -> do
-            let (a, b) = case mkModel smUnused . (\(h, _, _) -> h) <$> ret of
+            let (a, b) = case mkModel smUnused . (\(h, _, _) -> h) <$> [ret1, ret2] of
                     (x : y : _) -> (x,y)
                     _           -> error "expected at least two histories"
             liftProperty $ printModels a b `whenFail`

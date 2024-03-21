@@ -195,40 +195,39 @@ withDbLock run = do
   run lock
   liftIO $ cleanupLock lock
 
-sm :: SharedExclusive -> IO (StateMachine Model Action IO Response)
-sm se = do
-  lock <- setupLock
-  pure $ StateMachine initModel transitions preconditions postconditions
-         Nothing generator shrinker (semantics se lock) mock (const $ cleanupLock lock)
+sm :: SharedExclusive -> DbLock -> StateMachine Model Action IO Response
+sm se files = StateMachine
+  initModel transitions preconditions postconditions
+  Nothing generator shrinker (semantics se files) mock noCleanup
 
-smUnused :: StateMachine Model Action IO Response
-smUnused =
-  StateMachine initModel transitions preconditions postconditions
-         Nothing generator shrinker e mock noCleanup
- where
-   e = error "SUT must not be used"
+smUnused :: SharedExclusive -> StateMachine Model Action IO Response
+smUnused se = sm se (error "dblock used during command creation")
 
 -- Sequentially the model is consistent (even though the lock is
 -- shared).
 
 prop_ticketDispenser :: Property
 prop_ticketDispenser =
-  forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-      (hist, _, res) <- runCommandsWithSetup (sm Shared) cmds
-      prettyCommands smUnused hist $
+  forAllCommands (smUnused Shared) Nothing $ \cmds -> monadicIO $
+    withDbLock $ \ioLock -> do
+      let sm' = sm Shared ioLock
+      (hist, _, res) <- runCommands sm' cmds
+      prettyCommands sm' hist $
         checkCommandNames cmds (res === Ok)
 
 prop_ticketDispenserParallel :: SharedExclusive -> Property
 prop_ticketDispenserParallel se =
-  forAllParallelCommands smUnused Nothing $ \cmds -> monadicIO $ do
-      let sm' = sm se
-      prettyParallelCommands cmds =<< runParallelCommandsNTimesWithSetup 100 sm' cmds
+  forAllParallelCommandsNTimes (smUnused se) Nothing 100 $ \cmds -> monadicIO $
+    withDbLock $ \ioLock -> do
+      let sm' = sm se ioLock
+      prettyParallelCommands cmds =<< runParallelCommands sm' cmds
 
 prop_ticketDispenserNParallel :: SharedExclusive -> Int -> Property
 prop_ticketDispenserNParallel se np =
-  forAllNParallelCommands smUnused np $ \cmds -> monadicIO $ do
-      let sm' = sm se
-      prettyNParallelCommands cmds =<< runNParallelCommandsWithSetup sm' cmds
+  forAllNParallelCommands (smUnused se) np $ \cmds -> monadicIO $
+    withDbLock $ \ioLock -> do
+      let sm' = sm se ioLock
+      prettyNParallelCommands cmds =<< runNParallelCommands sm' cmds
 
 -- So long as the file locks are exclusive, i.e. not shared, the
 -- parallel property passes.
