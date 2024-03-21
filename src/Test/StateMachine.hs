@@ -19,7 +19,6 @@ module Test.StateMachine
     forAllCommands
   , existsCommands
   , runCommands
-  , runCommandsWithSetup
   , prettyCommands
   , prettyCommands'
   , checkCommandNames
@@ -35,17 +34,12 @@ module Test.StateMachine
   -- * Parallel property combinators
   , forAllParallelCommands
   , forAllNParallelCommands
+  , forAllParallelCommandsNTimes
+  , forAllNParallelCommandsNTimes
   , runNParallelCommands
-  , runNParallelCommandsWithSetup
   , runParallelCommands
-  , runParallelCommandsWithSetup
   , runParallelCommands'
-  , runParallelCommandsNTimes
-  , runParallelCommandsNTimesWithSetup
-  , runNParallelCommandsNTimes'
-  , runParallelCommandsNTimes'
-  , runNParallelCommandsNTimes
-  , runNParallelCommandsNTimesWithSetup
+  , runNParallelCommands'
   , prettyNParallelCommands
   , prettyParallelCommands
   , prettyParallelCommandsWithOpts
