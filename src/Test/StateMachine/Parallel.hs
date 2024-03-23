@@ -1,8 +1,8 @@
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -62,7 +62,7 @@ module Test.StateMachine.Parallel
 import           Control.Monad
                    (when)
 import           Control.Monad.Catch
-                   (MonadMask, generalBracket, ExitCase (..))
+                   (ExitCase(..), MonadMask, generalBracket)
 import           Control.Monad.State.Strict
                    (runStateT)
 import           Data.Bifunctor
@@ -70,7 +70,7 @@ import           Data.Bifunctor
 import           Data.Foldable
                    (toList)
 import           Data.List
-                   (find, partition, permutations, foldl')
+                   (find, foldl', partition, permutations)
 import qualified Data.Map.Strict                   as Map
 import           Data.Maybe
                    (fromMaybe, mapMaybe)
@@ -91,8 +91,8 @@ import           Text.PrettyPrint.ANSI.Leijen
 import           Text.Show.Pretty
                    (ppShow)
 import           UnliftIO
-                   (MonadIO, MonadUnliftIO, concurrently,
-                   forConcurrently, newTChanIO, TChan)
+                   (MonadIO, MonadUnliftIO, TChan, concurrently,
+                   forConcurrently, newTChanIO)
 
 import           Test.StateMachine.BoxDrawer
 import           Test.StateMachine.ConstructorName
@@ -102,7 +102,7 @@ import           Test.StateMachine.Sequential
 import           Test.StateMachine.Types
 import qualified Test.StateMachine.Types.Rank2     as Rank2
 import           Test.StateMachine.Utils
-import qualified Text.PrettyPrint.ANSI.Leijen as PP
+import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 
 ------------------------------------------------------------------------
 

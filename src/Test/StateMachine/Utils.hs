@@ -41,7 +41,8 @@ module Test.StateMachine.Utils
 
 import           Prelude
 
-import           Data.Bifunctor (second)
+import           Data.Bifunctor
+                   (second)
 import           Data.List
                    (foldl')
 import           Test.QuickCheck

@@ -19,10 +19,10 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
                    (expectFailure, testProperty, withMaxSuccess)
 
-import           Bookstore                as Store
+import           Bookstore             as Store
 import           CircularBuffer
 import           Cleanup
-import qualified CrudWebserverDb          as WS
+import qualified CrudWebserverDb       as WS
 import           DieHard
 import           Echo
 import           ErrorEncountered

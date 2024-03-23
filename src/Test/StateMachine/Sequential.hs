@@ -62,7 +62,8 @@ import           Control.Exception
 import           Control.Monad
                    (when)
 import           Control.Monad.Catch
-                   (MonadCatch, MonadMask, catch, ExitCase (..), generalBracket)
+                   (ExitCase(..), MonadCatch, MonadMask, catch,
+                   generalBracket)
 import           Control.Monad.State.Strict
                    (StateT, evalStateT, get, lift, put, runStateT)
 import           Data.Bifunctor
