@@ -705,10 +705,9 @@ prop_one_thread n = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
           cmdsChucks = chunksOf n' sx
           sfxs = (\c -> [c]) . QSM.Commands <$> cmdsChucks
           nParallelCmd = QSM.ParallelCommands {prefix = QSM.Commands px, suffixes = sfxs}
-      res <- runNParallelCommandsNTimes 1 sm nParallelCmd
-      let (hist', _ret) = unzip [ (a, c) | (a, _, c) <- res ]
-      let events = snd <$> (QSM.unHistory hist)
-          events' = snd <$> (concat (QSM.unHistory <$> hist'))
+      (hist', _, _ret) <- runNParallelCommands sm nParallelCmd
+      let events = snd <$> QSM.unHistory hist
+          events' = snd <$> QSM.unHistory hist'
       return $ cmpList equalH events' events
 
 {-------------------------------------------------------------------------------

@@ -51,6 +51,7 @@ import           GHC.Generics
                    (Generic, Generic1)
 import           Prelude
 import           System.Directory
+import           System.FilePath
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
 import           Test.StateMachine
@@ -279,16 +280,8 @@ transitionImpl model cmd =  eventAfter . lockstep model cmd
 deriving anyclass instance ToExpr DBModel
 deriving anyclass instance ToExpr (Model Concrete)
 
-sm :: MonadUnliftIO m => String -> m (StateMachine Model (At Cmd) m (At Resp))
-sm folder = do
-  liftIO $ removePathForcibly folder
-  liftIO $ createDirectory folder
-  poolBackend <- runNoLoggingT $ createSqliteAsyncPool (pack folder <> "/persons.db") 5
-  _ <- flip runSqlAsyncWrite poolBackend $ do
-    _ <- runMigrationQuiet $ migrate entityDefs $ entityDef (Nothing :: Maybe Person)
-    runMigrationQuiet $ migrate entityDefs $ entityDef (Nothing :: Maybe Car)
-  lock <- liftIO $ newMVar ()
-  pure $ StateMachine {
+sm :: MonadIO m => String -> AsyncWithPool SqlBackend -> MVar () -> StateMachine Model (At Cmd) m (At Resp)
+sm folder poolBackend lock = StateMachine {
      initModel     = initModelImpl
    , transition    = transitionImpl
    , precondition  = preconditionImpl
@@ -304,21 +297,9 @@ sm folder = do
    }
 
 smUnused :: StateMachine Model (At Cmd) IO (At Resp)
-smUnused =
-  StateMachine {
-     initModel     = initModelImpl
-   , transition    = transitionImpl
-   , precondition  = preconditionImpl
-   , postcondition = postconditionImpl
-   , invariant     = Nothing
-   , generator     = generatorImpl
-   , shrinker      = shrinkerImpl
-   , semantics     = e
-   , mock          = mockImpl
-   , cleanup       = e
-   }
- where
-   e = error "SUT must not be used"
+smUnused = sm e e e
+  where
+    e = error "SUT must not be used"
 
 generatorImpl :: Model Symbolic -> Maybe (Gen (At Cmd Symbolic))
 generatorImpl _model = Just $ At <$>
@@ -350,16 +331,29 @@ instance ToExpr (Key Car) where
 clean :: MonadIO m => String -> Model Concrete -> m ()
 clean folder _ = liftIO $ removePathForcibly folder
 
+mkEnv :: FilePath -> IO (AsyncWithPool SqlBackend, MVar ())
+mkEnv name = do
+  removePathForcibly name
+  createDirectory name
+  db <- runNoLoggingT $ createSqliteAsyncPool (pack $ name </> "persons.db") 5
+  _ <- flip runSqlAsyncWrite db $ do
+    _ <- runMigrationQuiet $ migrate entityDefs $ entityDef (Nothing :: Maybe Person)
+    runMigrationQuiet $ migrate entityDefs $ entityDef (Nothing :: Maybe Car)
+  lock <- newMVar ()
+  pure (db, lock)
+
 prop_sequential_sqlite :: Property
 prop_sequential_sqlite =
     forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-        (hist, _model, res) <- runCommandsWithSetup (sm "sqlite-seq")  cmds
+        (db, lock) <- run $ mkEnv "sqlite-seq"
+        (hist, _model, res) <- runCommands (sm "sqlite-seq" db lock)  cmds
         prettyCommands smUnused hist $ res === Ok
 
 prop_parallel_sqlite :: Property
 prop_parallel_sqlite =
-    forAllParallelCommands smUnused Nothing $ \cmds -> monadicIO $ do
-        ret <- runParallelCommandsNTimesWithSetup 1 (sm "sqlite-par") cmds
+    forAllParallelCommandsNTimes smUnused Nothing 1 $ \cmds -> monadicIO $ do
+        (db, lock) <- run $ mkEnv "sqlite-par"
+        ret <- runParallelCommands (sm "sqlite-par" db lock) cmds
         prettyParallelCommandsWithOpts cmds (Just $ GraphOptions "sqlite.jpeg" Jpeg) ret
 
 instance Bifoldable t => Rank2.Foldable (At t) where

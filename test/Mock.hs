@@ -24,7 +24,7 @@ import           GHC.Generics
 import           Prelude
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
-                   (monadicIO)
+                   (monadicIO, run)
 import           Test.StateMachine
 import           Test.StateMachine.DotDrawing
 import           Test.StateMachine.TreeDiff
@@ -95,31 +95,31 @@ generator _            = Just $ frequency
 shrinker :: Model Symbolic -> Command Symbolic -> [Command Symbolic]
 shrinker _ _ = []
 
-sm :: IO (StateMachine Model Command IO Response)
-sm = do
-  counter <- newMVar 0
-  pure $ StateMachine initModel transition precondition postcondition
+sm :: MVar Int ->  StateMachine Model Command IO Response
+sm counter = StateMachine initModel transition precondition postcondition
         Nothing generator shrinker (semantics counter) mock noCleanup
 
 smUnused :: StateMachine Model Command IO Response
-smUnused = StateMachine initModel transition precondition postcondition
-        Nothing generator shrinker e mock noCleanup
+smUnused = sm e
   where
     e = error "SUT must not be used"
 
 prop_sequential_mock :: Property
 prop_sequential_mock = forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-  (hist, _model, res) <- runCommandsWithSetup sm cmds
+  counter <- run $ newMVar 0
+  (hist, _model, res) <- runCommands (sm counter) cmds
   prettyCommands smUnused hist (res === Ok)
 
 prop_parallel_mock :: Property
 prop_parallel_mock = forAllParallelCommands smUnused Nothing $ \cmds -> monadicIO $ do
-    ret <- runParallelCommandsWithSetup sm cmds
+    counter <- run $ newMVar 0
+    ret <- runParallelCommands (sm counter) cmds
     prettyParallelCommandsWithOpts cmds opts ret
       where opts = Just $ GraphOptions "mock-test-output.png" Png
 
 prop_nparallel_mock :: Property
 prop_nparallel_mock = forAllNParallelCommands smUnused 3 $ \cmds -> monadicIO $ do
-    ret <- runNParallelCommandsWithSetup sm cmds
+    counter <- run $ newMVar 0
+    ret <- runNParallelCommands (sm counter) cmds
     prettyNParallelCommandsWithOpts cmds opts ret
       where opts = Just $ GraphOptions "mock-np-test-output.png" Png

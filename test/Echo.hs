@@ -36,7 +36,8 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
                    (monadicIO)
 import           UnliftIO
-                   (TVar, atomically, newTVarIO, readTVar, writeTVar)
+                   (TVar, atomically, liftIO, newTVarIO, readTVar,
+                   writeTVar)
 
 import           Test.StateMachine
 import           Test.StateMachine.TreeDiff
@@ -76,97 +77,88 @@ output (Env mBuf) = atomically $ do
 
 prop_echoOK :: Property
 prop_echoOK = forAllCommands smUnused Nothing $ \cmds -> monadicIO $ do
-    (hist, _, res) <- runCommandsWithSetup echoSM cmds
-    prettyCommands smUnused hist (res === Ok)
+    env <- liftIO $ mkEnv
+    let echoSM' = echoSM env
+    (hist, _, res) <- runCommands echoSM' cmds
+    prettyCommands echoSM' hist (res === Ok)
 
 prop_echoParallelOK :: Property
 prop_echoParallelOK = forAllParallelCommands smUnused Nothing $ \cmds -> monadicIO $ do
-    prettyParallelCommands cmds =<< runParallelCommandsWithSetup echoSM cmds
+    env <- liftIO $ mkEnv
+    let echoSM' = echoSM env
+    prettyParallelCommands cmds =<< runParallelCommands echoSM' cmds
 
 prop_echoNParallelOK :: Int -> Property
 prop_echoNParallelOK np = forAllNParallelCommands smUnused np $ \cmds -> monadicIO $ do
-    prettyNParallelCommands cmds =<< runNParallelCommandsWithSetup echoSM cmds
+    env <- liftIO $ mkEnv
+    let echoSM' = echoSM env
+    prettyNParallelCommands cmds =<< runNParallelCommands echoSM' cmds
 
 smUnused :: StateMachine Model Action IO Response
-smUnused = StateMachine
+smUnused = echoSM $ error "used env during command generation"
+
+echoSM :: Env -> StateMachine Model Action IO Response
+echoSM env = StateMachine
     { initModel = Empty -- At the beginning of time nothing was received.
-    , transition = transitions
-    , precondition = preconditions
-    , postcondition = postconditions
-    , QC.generator = Echo.generator
+    , transition = mTransitions
+    , precondition = mPreconditions
+    , postcondition = mPostconditions
+    , generator = mGenerator
     , invariant = Nothing
-    , QC.shrinker = Echo.shrinker
-    , QC.semantics = e
-    , QC.mock = Echo.mock
+    , shrinker = mShrinker
+    , semantics = mSemantics
+    , mock = mMock
     , cleanup = noCleanup
     }
-  where
-    e = error "SUT must not be used"
+    where
+      mTransitions :: Model r -> Action r -> Response r -> Model r
+      mTransitions Empty   (In str) _   = Buf str
+      mTransitions (Buf _) Echo     _   = Empty
+      mTransitions Empty   Echo     _   = Empty
+      -- TODO: qcsm will match the case below. However we don't expect this to happen!
+      mTransitions (Buf str) (In _)   _ = Buf str -- Dummy response
+          -- error "This shouldn't happen: input transition with full buffer"
 
-echoSM :: IO (StateMachine Model Action IO Response)
-echoSM  = do
-  env <- mkEnv
-  pure $ StateMachine
-    { initModel = Empty -- At the beginning of time nothing was received.
-    , transition = transitions
-    , precondition = preconditions
-    , postcondition = postconditions
-    , QC.generator = Echo.generator
-    , invariant = Nothing
-    , QC.shrinker = Echo.shrinker
-    , QC.semantics = Echo.semantics env
-    , QC.mock = Echo.mock
-    , cleanup = noCleanup
-    }
+      -- | There are no preconditions for this model.
+      mPreconditions :: Model Symbolic -> Action Symbolic -> Logic
+      mPreconditions _ _ = Top
 
-transitions :: Model r -> Action r -> Response r -> Model r
-transitions Empty   (In str) _   = Buf str
-transitions (Buf _) Echo     _   = Empty
-transitions Empty   Echo     _   = Empty
--- TODO: qcsm will match the case below. However we don't expect this to happen!
-transitions (Buf str) (In _)   _ = Buf str -- Dummy response
-    -- error "This shouldn't happen: input transition with full buffer"
+      -- | Post conditions for the system.
+      mPostconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
+      mPostconditions Empty     (In _) InAck     = Top
+      mPostconditions (Buf _)   (In _) ErrFull   = Top
+      mPostconditions _         (In _) _         = Bot
+      mPostconditions Empty     Echo   ErrEmpty  = Top
+      mPostconditions Empty     Echo   _         = Bot
+      mPostconditions (Buf str) Echo   (Out out) = str .== out
+      mPostconditions (Buf _)   Echo   _         = Bot
 
--- | There are no preconditions for this model.
-preconditions :: Model Symbolic -> Action Symbolic -> Logic
-preconditions _ _ = Top
+      -- | Generator for symbolic actions.
+      mGenerator :: Model Symbolic -> Maybe (Gen (Action Symbolic))
+      mGenerator _ =  Just $ oneof
+          [ In <$> arbitrary
+          , return Echo
+          ]
 
--- | Post conditions for the system.
-postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
-postconditions Empty     (In _) InAck     = Top
-postconditions (Buf _)   (In _) ErrFull   = Top
-postconditions _         (In _) _         = Bot
-postconditions Empty     Echo   ErrEmpty  = Top
-postconditions Empty     Echo   _         = Bot
-postconditions (Buf str) Echo   (Out out) = str .== out
-postconditions (Buf _)   Echo   _         = Bot
+      -- | Trivial shrinker.
+      mShrinker :: Model Symbolic -> Action Symbolic -> [Action Symbolic]
+      mShrinker _ _ = []
 
--- | Generator for symbolic actions.
-generator :: Model Symbolic -> Maybe (Gen (Action Symbolic))
-generator _ =  Just $ oneof
-    [ In <$> arbitrary
-    , return Echo
-    ]
+      -- | Here we'd do the dispatch to the actual SUT.
+      mSemantics :: Action Concrete -> IO (Response Concrete)
+      mSemantics (In str) = do
+          success <- input env str
+          return $ if success
+                   then InAck
+                   else ErrFull
+      mSemantics Echo = maybe ErrEmpty Out <$> output env
 
--- | Trivial shrinker.
-shrinker :: Model Symbolic -> Action Symbolic -> [Action Symbolic]
-shrinker _ _ = []
-
--- | Here we'd do the dispatch to the actual SUT.
-semantics :: Env -> Action Concrete -> IO (Response Concrete)
-semantics env (In str) = do
-    success <- input env str
-    return $ if success
-             then InAck
-             else ErrFull
-semantics env Echo = maybe ErrEmpty Out <$> output env
-
--- | What is the mock for?
-mock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
-mock Empty (In _)   = return InAck
-mock (Buf _) (In _) = return ErrFull
-mock Empty Echo     = return ErrEmpty
-mock (Buf str) Echo = return (Out str)
+      -- | What is the mock for?
+      mMock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
+      mMock Empty (In _)   = return InAck
+      mMock (Buf _) (In _) = return ErrFull
+      mMock Empty Echo     = return ErrEmpty
+      mMock (Buf str) Echo = return (Out str)
 
 deriving anyclass instance ToExpr (Model Concrete)
 
