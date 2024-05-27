@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE NamedFieldPuns      #-}
@@ -43,8 +44,10 @@ import           Prelude
 
 import           Data.Bifunctor
                    (second)
+#if __GLASGOW_HASKELL__ < 910
 import           Data.List
                    (foldl')
+#endif
 import           Test.QuickCheck
                    (Arbitrary, Gen, Property, collect, resize, shrink,
                    shrinkList, sized, whenFail)

@@ -6,7 +6,6 @@ import           Data.List.Compat
                    (sortOn)
 import qualified Data.MemoTrie    as M
 import qualified Data.Vector      as V
-
 -- | List edit operations
 --
 -- The 'Swp' constructor is redundant, but it let us spot
@@ -47,11 +46,12 @@ diffBy eq xs' ys' = reverse (snd (lcs (V.length xs) (V.length ys)))
     impl n 0 = case lcs (n -1) 0 of
         (w, edit) -> (w + 1, Del (xs V.! (n - 1)) : edit)
 
-    impl n m = head $ sortOn fst
-        [ edit
-        , bimap (+1) (Ins y :) (lcs n (m - 1))
-        , bimap (+1) (Del x :) (lcs (n - 1) m)
-        ]
+    impl n m = case sortOn fst [ edit
+                               , bimap (+1) (Ins y :) (lcs n (m - 1))
+                               , bimap (+1) (Del x :) (lcs (n - 1) m)
+                               ] of
+          h:_ -> h
+          [] -> error "Impossible, sorted 3 elements and got an empty list back"
       where
         x = xs V.! (n - 1)
         y = ys V.! (m - 1)

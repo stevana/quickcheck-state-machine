@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE Rank2Types          #-}
@@ -70,7 +71,11 @@ import           Data.Bifunctor
 import           Data.Foldable
                    (toList)
 import           Data.List
-                   (find, foldl', partition, permutations)
+                   (find, partition, permutations)
+#if __GLASGOW_HASKELL__ < 910
+import           Data.List
+                   (foldl')
+#endif
 import qualified Data.Map.Strict                   as Map
 import           Data.Maybe
                    (fromMaybe, mapMaybe)
@@ -81,19 +86,21 @@ import qualified Data.Set                          as S
 import           Data.Tree
                    (Tree(Node))
 import           Prelude
+import           Prettyprinter
+                   (Doc)
 import           Test.QuickCheck
                    (Gen, Property, Testable, choose, forAllShrinkShow,
                    property, sized, (.&&.))
 import           Test.QuickCheck.Monadic
                    (PropertyM, run)
-import           Text.PrettyPrint.ANSI.Leijen
-                   (Doc)
 import           Text.Show.Pretty
                    (ppShow)
 import           UnliftIO
                    (MonadIO, MonadUnliftIO, TChan, concurrently,
                    forConcurrently, newTChanIO)
 
+import qualified Prettyprinter                     as PP
+import qualified Prettyprinter.Render.Terminal     as PP
 import           Test.StateMachine.BoxDrawer
 import           Test.StateMachine.ConstructorName
 import           Test.StateMachine.DotDrawing
@@ -102,7 +109,6 @@ import           Test.StateMachine.Sequential
 import           Test.StateMachine.Types
 import qualified Test.StateMachine.Types.Rank2     as Rank2
 import           Test.StateMachine.Utils
-import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 
 ------------------------------------------------------------------------
 
@@ -547,7 +553,7 @@ executeParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
                         -> TChan (Pid, HistoryEvent cmd resp)
                         -> Bool
                         -> m (History cmd resp, model Concrete, Reason, Reason)
-executeParallelCommands sm@StateMachine{ initModel, cleanup } (ParallelCommands prefix suffixes) hchan stopOnError = do
+executeParallelCommands sm@StateMachine{ initModel } (ParallelCommands prefix suffixes) hchan stopOnError = do
     (reason0, (env0, _smodel, _counter, _cmodel)) <-
       runStateT
         (executeCommands sm hchan (Pid 0) CheckEverything prefix)
@@ -669,7 +675,7 @@ executeNParallelCommands :: (Rank2.Traversable cmd, Show (cmd Concrete), Rank2.F
                          -> TChan (Pid, HistoryEvent cmd resp)
                          -> Bool
                          -> m (History cmd resp, model Concrete, Reason)
-executeNParallelCommands sm@StateMachine{ initModel, cleanup } (ParallelCommands prefix suffixes) hchan stopOnError = do
+executeNParallelCommands sm@StateMachine{ initModel } (ParallelCommands prefix suffixes) hchan stopOnError = do
     (reason0, (env0, _smodel, _counter, _cmodel)) <-
       runStateT
         (executeCommands sm hchan (Pid 0) CheckEverything prefix)
@@ -760,8 +766,8 @@ prettyParallelCommandsWithOpts cmds mGraphOptions (h, _, l) = do
         PP.putDoc $
           mconcat
            [ PP.line
-           , PP.string (show $ toBoxDrawings cmds hist')
-           , PP.string (show $ simplify ce)
+           , PP.pretty (show $ toBoxDrawings cmds hist')
+           , PP.pretty (show $ simplify ce)
            , PP.line
            ]
         case mGraphOptions of
@@ -777,8 +783,8 @@ simplify (ExistsC [] [])             = BotC
 simplify (ExistsC _ [Fst ce])        = ce
 simplify (ExistsC x (Fst ce : ces))  = ce `EitherC` simplify (ExistsC x ces)
 simplify (ExistsC _ (Snd ce : _))    = simplify ce
-simplify _                           = error "simplify: impossible,\
-                                            \ because of the structure of linearise."
+simplify _                           = error "simplify: impossible, \
+                                         \because of the structure of linearise."
 
 prettyParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
                        => MonadIO m
@@ -804,7 +810,7 @@ prettyNParallelCommandsWithOpts cmds mGraphOptions (h, _, l) =
         PP.putDoc $
           mconcat
            [ PP.line
-           , PP.string (show $ simplify ce)
+           , PP.pretty (show $ simplify ce)
            , PP.line
            ]
         case mGraphOptions of
@@ -823,15 +829,15 @@ prettyNParallelCommands cmds = prettyNParallelCommandsWithOpts cmds Nothing
 
 -- | Draw an ASCII diagram of the history of a parallel program. Useful for
 --   seeing how a race condition might have occured.
-toBoxDrawings :: forall cmd resp. Rank2.Foldable cmd
+toBoxDrawings :: forall cmd resp ann. Rank2.Foldable cmd
               => (Show (cmd Concrete), Show (resp Concrete))
-              => ParallelCommands cmd resp -> History cmd resp -> Doc
+              => ParallelCommands cmd resp -> History cmd resp -> Doc ann
 toBoxDrawings (ParallelCommands prefix suffixes) = toBoxDrawings'' allVars
   where
     allVars = getAllUsedVars prefix `S.union`
                 foldMap (foldMap getAllUsedVars) suffixes
 
-    toBoxDrawings'' :: Set Var -> History cmd resp -> Doc
+    toBoxDrawings'' :: Set Var -> History cmd resp -> Doc ann
     toBoxDrawings'' knownVars (History h) = mconcat
         ([ exec evT (fmap (out  . snd) <$> Fork l p r)
          , PP.line
@@ -869,11 +875,11 @@ toBoxDrawings (ParallelCommands prefix suffixes) = toBoxDrawings'' allVars
         evT :: [(EventType, Pid)]
         evT = toEventType (filter (\e -> fst e `Prelude.elem` map Pid [1, 2]) h)
 
-        ppException :: (Int, String) -> Doc
+        ppException :: (Int, String) -> Doc ann
         ppException (idx, err) = mconcat
-         [ PP.string $ "Exception " <> show idx <> ":"
+         [ PP.pretty $ "Exception " <> show idx <> ":"
          , PP.line
-         , PP.indent 2 $ PP.string err
+         , PP.indent 2 $ PP.pretty err
          , PP.line
          , PP.line
          ]
