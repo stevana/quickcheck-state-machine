@@ -1,3 +1,19 @@
+#### 0.10.0 (2024-05-28)
+
+* Revert `WithSetup` variants that were introduced in 0.7.2. Due to the way
+  repetitions are done now, there is no need for these variants anymore (PR #43);
+
+* Delete `run[N]ParallelCommandsNTimes` in favor of the new
+  `forAll[N]ParallelCommandsNTimes` as repetitions now happen at the `forAll`
+  level (PR #43);
+
+* Rename `forall` to `forAll` as it will be a reserved word starting
+  in GHC 9.10.1 (see [GHC proposal 281](https://github.com/ghc-proposals/ghc-proposals/blob/master/proposals/0281-visible-forall.rst)) (PR #49);
+
+* Replace `ansi-wl-pprint` with `prettyprinter` because `ansi-wl-pprint` was
+  deprecated in favour of `prettyprinter` (PR #49).
+
+
 #### 0.9.0 (2024-01-16)
 
 * Split the package into the machinery that abstracts over whichever diffing
