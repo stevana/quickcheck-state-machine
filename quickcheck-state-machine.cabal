@@ -23,12 +23,7 @@ extra-doc-files:
   README.md
 
 tested-with:
-  GHC ==8.8.4
-   || ==8.10.7
-   || ==9.2.8
-   || ==9.4.8
-   || ==9.6.5
-   || ==9.8.2
+  GHC ==8.8.4 || ==8.10.7 || ==9.2.8 || ==9.4.8 || ==9.6.5 || ==9.8.2
 
 -- Due to `tree-diff` being `GPL`, this library makes use of an interface
 -- (@CanDiff@) to diff models. This can be implemented with the vendored
