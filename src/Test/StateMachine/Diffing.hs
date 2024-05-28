@@ -12,7 +12,8 @@ module Test.StateMachine.Diffing (CanDiff(..), ediff) where
 
 import           Data.Proxy
                    (Proxy(..))
-import qualified Text.PrettyPrint.ANSI.Leijen as WL
+import qualified Prettyprinter                 as PP
+import qualified Prettyprinter.Render.Terminal as PP
 
 class CanDiff x where
   -- | Expressions that will be diffed
@@ -27,13 +28,13 @@ class CanDiff x where
   exprDiff :: Proxy x -> AnExpr x -> AnExpr x -> ADiff x
 
   -- | Output a diff in compact form
-  diffToDocCompact :: Proxy x -> ADiff x -> WL.Doc
+  diffToDocCompact :: Proxy x -> ADiff x -> PP.Doc PP.AnsiStyle
 
   -- | Output a diff
-  diffToDoc :: Proxy x -> ADiff x -> WL.Doc
+  diffToDoc :: Proxy x -> ADiff x -> PP.Doc PP.AnsiStyle
 
   -- | Output an expression
-  exprToDoc :: Proxy x -> AnExpr x -> WL.Doc
+  exprToDoc :: Proxy x -> AnExpr x -> PP.Doc PP.AnsiStyle
 
 ediff :: forall x. CanDiff x => x -> x -> ADiff x
 ediff x y = exprDiff (Proxy @x) (toDiff x) (toDiff y)

@@ -40,7 +40,7 @@ module Test.StateMachine.Logic
   , (.&&)
   , (.||)
   , (.=>)
-  , forall
+  , forAll
   , exists
   )
   where
@@ -193,10 +193,10 @@ evalLogicPredicate p0 = let b = go p0 in case p0 of
 -- >>> gatherAnnotations (Bot .// "bot" .&& Top .// "top")
 -- []
 --
--- >>> gatherAnnotations (forall [1,2,3] (\i -> 0 .< i .// "positive"))
+-- >>> gatherAnnotations (forAll [1,2,3] (\i -> 0 .< i .// "positive"))
 -- ["positive","positive","positive"]
 --
--- >>> gatherAnnotations (forall [0,1,2,3] (\i -> 0 .< i .// "positive"))
+-- >>> gatherAnnotations (forAll [0,1,2,3] (\i -> 0 .< i .// "positive"))
 -- []
 --
 -- >>> gatherAnnotations (exists [1,2,3] (\i -> 0 .< i .// "positive"))
@@ -280,8 +280,8 @@ l .// s = Annotate s l
 (.=>) :: Logic -> Logic -> Logic
 (.=>) = (:=>)
 
-forall :: Show a => [a] -> (a -> Logic) -> Logic
-forall = Forall
+forAll :: Show a => [a] -> (a -> Logic) -> Logic
+forAll = Forall
 
 exists :: Show a => [a] -> (a -> Logic) -> Logic
 exists = Exists
