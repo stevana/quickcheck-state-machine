@@ -23,8 +23,8 @@ module Test.StateMachine.BoxDrawer
   ) where
 
 import           Prelude
-import           Text.PrettyPrint.ANSI.Leijen
-                   (Doc, text, vsep)
+import           Prettyprinter
+                   (Doc, pretty, vsep)
 
 import           Test.StateMachine.Types
                    (Pid(..))
@@ -99,8 +99,8 @@ data Fork a = Fork a a a
   deriving stock Functor
 
 -- | Given a history, and output from processes generate Doc with boxes
-exec :: [(EventType, Pid)] -> Fork [String] -> Doc
-exec evT (Fork lops pops rops) = vsep $ map text (preBoxes ++ parBoxes)
+exec :: [(EventType, Pid)] -> Fork [String] -> Doc ann
+exec evT (Fork lops pops rops) = vsep $ map pretty (preBoxes ++ parBoxes)
   where
     preBoxes = let pref = compilePrefix pops
                in map (adjust $ maximum $ map ((2+) . size) pref ++ map ((2+) . length) (take 1 parBoxes)) pref
