@@ -59,10 +59,15 @@ module Test.StateMachine.Parallel
   , executeParallelCommands
   ) where
 
+import           Control.Concurrent.Class.MonadSTM.TChan
+                   (TChan, newTChanIO)
 import           Control.Monad
                    (when)
-import           Control.Monad.Catch
-                   (ExitCase(..), MonadMask, generalBracket)
+import           Control.Monad.Class.MonadAsync
+import           Control.Monad.Class.MonadSay
+import           Control.Monad.Class.MonadSTM            hiding
+                   (check)
+import           Control.Monad.Class.MonadThrow
 import           Control.Monad.State.Strict
                    (runStateT)
 import           Data.Bifunctor
@@ -71,13 +76,13 @@ import           Data.Foldable
                    (toList)
 import           Data.List
                    (find, foldl', partition, permutations)
-import qualified Data.Map.Strict                   as Map
+import qualified Data.Map.Strict                         as Map
 import           Data.Maybe
                    (fromMaybe, mapMaybe)
 import           Data.Monoid
 import           Data.Set
                    (Set)
-import qualified Data.Set                          as S
+import qualified Data.Set                                as S
 import           Data.Tree
                    (Tree(Node))
 import           Prelude
@@ -90,19 +95,16 @@ import           Test.QuickCheck.Monadic
                    (PropertyM, run)
 import           Text.Show.Pretty
                    (ppShow)
-import           UnliftIO
-                   (MonadIO, MonadUnliftIO, TChan, concurrently,
-                   forConcurrently, newTChanIO)
 
-import qualified Prettyprinter                     as PP
-import qualified Prettyprinter.Render.Terminal     as PP
+import qualified Prettyprinter                           as PP
+import qualified Prettyprinter.Render.Terminal           as PP
 import           Test.StateMachine.BoxDrawer
 import           Test.StateMachine.ConstructorName
 import           Test.StateMachine.DotDrawing
 import           Test.StateMachine.Logic
 import           Test.StateMachine.Sequential
 import           Test.StateMachine.Types
-import qualified Test.StateMachine.Types.Rank2     as Rank2
+import qualified Test.StateMachine.Types.Rank2           as Rank2
 import           Test.StateMachine.Utils
 
 ------------------------------------------------------------------------
@@ -504,12 +506,12 @@ shrinkAndValidateNParallel sm = \shouldShrink  (ParallelCommands prefix suffixes
 
 runParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
                           => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                          => (MonadMask m, MonadUnliftIO m)
+                          => (MonadMask m, MonadSTM m, MonadSay m, MonadAsync m)
                           => StateMachine model cmd m resp
                           -> ParallelCommands cmd resp
                           -> PropertyM m (History cmd resp, model Concrete, Logic)
 runParallelCommands sm cmds = do
-    hchan <- newTChanIO
+    hchan <- run newTChanIO
     ((hist, model, reason1, reason2), ()) <- run $
       fst <$> generalBracket
               (pure ())
@@ -522,13 +524,13 @@ runParallelCommands sm cmds = do
 
 runParallelCommands' :: (Show (cmd Concrete), Show (resp Concrete))
                            => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                           => (MonadMask m, MonadUnliftIO m)
+                           => (MonadMask m, MonadSTM m, MonadSay m, MonadAsync m)
                            => StateMachine model cmd m resp
                            -> (cmd Concrete -> resp Concrete)
                            -> ParallelCommands cmd resp
                            -> PropertyM m (History cmd resp, model Concrete, Logic)
 runParallelCommands' sm complete cmds = do
-    hchan <- newTChanIO
+    hchan <- run newTChanIO
     ((hist, model, _reason1, _reason2), ()) <- run $
       fst <$> generalBracket
               (pure ())
@@ -542,10 +544,10 @@ runParallelCommands' sm complete cmds = do
 
 executeParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
                         => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                        => (MonadMask m, MonadUnliftIO m)
+                        => (MonadMask m, MonadSTM m, MonadSay m, MonadAsync m)
                         => StateMachine model cmd m resp
                         -> ParallelCommands cmd resp
-                        -> TChan (Pid, HistoryEvent cmd resp)
+                        -> TChan m (Pid, HistoryEvent cmd resp)
                         -> Bool
                         -> m (History cmd resp, model Concrete, Reason, Reason)
 executeParallelCommands sm@StateMachine{ initModel } (ParallelCommands prefix suffixes) hchan stopOnError = do
@@ -626,12 +628,12 @@ logicReason r  = Annotate (show r) Bot
 
 runNParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
                      => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                     => (MonadMask m, MonadUnliftIO m)
+                     => (MonadMask m, MonadSTM m, MonadSay m, MonadAsync m)
                      => StateMachine model cmd m resp
                      -> NParallelCommands cmd resp
                      -> PropertyM m (History cmd resp, model Concrete, Logic)
 runNParallelCommands sm cmds = do
-    hchan <- newTChanIO
+    hchan <- run newTChanIO
     ((hist, model, reason), ()) <- run $
       fst <$> generalBracket
               (pure ())
@@ -644,13 +646,13 @@ runNParallelCommands sm cmds = do
 
 runNParallelCommands' :: (Show (cmd Concrete), Show (resp Concrete))
                       => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                      => (MonadMask m, MonadUnliftIO m)
+                      => (MonadMask m, MonadSTM m, MonadSay m, MonadAsync m)
                       => StateMachine model cmd m resp
                       -> (cmd Concrete -> resp Concrete)
                       -> NParallelCommands cmd resp
                       -> PropertyM m (History cmd resp, model Concrete, Logic)
 runNParallelCommands' sm complete cmds = do
-    hchan <- newTChanIO
+    hchan <- run newTChanIO
     ((hist, model, _reason), ()) <- run $
       fst <$> generalBracket
               (pure ())
@@ -664,10 +666,10 @@ runNParallelCommands' sm complete cmds = do
 
 executeNParallelCommands :: (Rank2.Traversable cmd, Show (cmd Concrete), Rank2.Foldable resp)
                          => Show (resp Concrete)
-                         => (MonadMask m, MonadUnliftIO m)
+                         => (MonadMask m, MonadSTM m, MonadSay m, MonadAsync m)
                          => StateMachine model cmd m resp
                          -> NParallelCommands cmd resp
-                         -> TChan (Pid, HistoryEvent cmd resp)
+                         -> TChan m (Pid, HistoryEvent cmd resp)
                          -> Bool
                          -> m (History cmd resp, model Concrete, Reason)
 executeNParallelCommands sm@StateMachine{ initModel } (ParallelCommands prefix suffixes) hchan stopOnError = do
@@ -748,7 +750,7 @@ exists' xs p = exists xs p
 
 -- | Takes the output of parallel program runs and pretty prints a
 --   counterexample if any of the runs fail.
-prettyParallelCommandsWithOpts :: (MonadIO m, Rank2.Foldable cmd)
+prettyParallelCommandsWithOpts :: (Monad m, Rank2.Foldable cmd)
                               => (Show (cmd Concrete), Show (resp Concrete))
                               => ParallelCommands cmd resp
                               -> Maybe GraphOptions
@@ -782,7 +784,7 @@ simplify _                           = error "simplify: impossible, \
                                          \because of the structure of linearise."
 
 prettyParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
-                       => MonadIO m
+                       => Monad m
                        => Rank2.Foldable cmd
                        => ParallelCommands cmd resp
                        -> (History cmd resp, model Concrete, Logic) -- ^ Output of 'runParallelCommands'.
@@ -792,7 +794,7 @@ prettyParallelCommands cmds = prettyParallelCommandsWithOpts cmds Nothing
 -- | Takes the output of parallel program runs and pretty prints a
 --   counterexample if any of the runs fail.
 prettyNParallelCommandsWithOpts :: (Show (cmd Concrete), Show (resp Concrete))
-                                => MonadIO m
+                                => Monad m
                                 => Rank2.Foldable cmd
                                 => NParallelCommands cmd resp
                                 -> Maybe GraphOptions
@@ -815,7 +817,7 @@ prettyNParallelCommandsWithOpts cmds mGraphOptions (h, _, l) =
         = error "prettyNParallelCommands: impossible, because `boolean l` was False."
 
 prettyNParallelCommands :: (Show (cmd Concrete), Show (resp Concrete))
-                        => MonadIO m
+                        => Monad m
                         => Rank2.Foldable cmd
                         => NParallelCommands cmd resp
                         -> (History cmd resp, model Concrete, Logic) -- ^ Output of 'runNParallelCommands'.
