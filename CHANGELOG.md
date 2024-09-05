@@ -1,3 +1,9 @@
+#### 0.10.1 (2024-09-05)
+
+* Bump upper bounds of outdated dependencies.
+
+* Add ghc-9.10.1 to the CI build matrix.
+
 #### 0.10.0 (2024-05-28)
 
 * Revert `WithSetup` variants that were introduced in 0.7.2. Due to the way
