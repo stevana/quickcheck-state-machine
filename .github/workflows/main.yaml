@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04]
-        ghc-version: ['8.8.4', '8.10.7', '9.2.8', '9.4.8', '9.6.5', '9.8.2']
+        ghc-version: ['8.8.4', '8.10.7', '9.2.8', '9.4.8', '9.6.6', '9.8.2', '9.10.1']
 
     steps:
       - uses: actions/checkout@v3

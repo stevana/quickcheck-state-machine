@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            quickcheck-state-machine
-version:         0.10.0
+version:         0.10.1
 synopsis:        Test monadic programs using state machine based models
 description:
   See README at <https://github.com/stevana/quickcheck-state-machine#readme>
@@ -67,14 +67,14 @@ library no-vendored-treediff
     , filepath    >=1.0     && <1.6
     , mtl         >=2.2.1   && <2.4
     , text        >=1.2.3.1 && <2.2
-    , time        >=1.7     && <1.13
+    , time        >=1.7     && <1.15
 
   build-depends:
     , graphviz                     >=2999.20.0.3 && <2999.21
     , pretty-show                  >=1.6.16      && <1.11
     , prettyprinter                ^>=1.7.1
     , prettyprinter-ansi-terminal  ^>=1.1.3
-    , QuickCheck                   >=2.12        && <2.15
+    , QuickCheck                   >=2.12        && <2.16
     , random                       >=1.1         && <1.3
     , sop-core                     >=0.5.0.2     && <0.6
     , split                        >=0.2.3.5     && <0.3
@@ -132,7 +132,7 @@ library
 
   -- tree-diff dependencies:
   build-depends:
-    , base-compat                                    >=0.9.3    && <0.14
+    , base-compat                                    >=0.9.3    && <0.15
     , bytestring                                     >=0.10.4.0 && <0.13
     , generics-sop                                   >=0.3.1.0  && <0.6
     , MemoTrie                                       >=0.6.8    && <0.7
@@ -156,12 +156,12 @@ test-suite test
     , doctest                   >=0.16.2   && <0.23
     , filelock                  >=0.1.1.4  && <0.2
     , filepath
-    , hashable                  >=1.3.0.0  && <1.5
+    , hashable                  >=1.3.0.0  && <1.6
     , hashtables                >=1.2.3.4  && <1.4
     , http-client               >=0.6.4.1  && <0.8
     , monad-logger              >=0.3.32   && <0.4
     , mtl
-    , network                   >=3.1.1.1  && <3.2
+    , network                   >=3.1.1.1  && <3.3
     , persistent                >=2.10.5.2 && <2.15
     , persistent-postgresql     >=2.10.1.2 && <2.14
     , persistent-sqlite         >=2.10.6.2 && <2.14
@@ -182,12 +182,12 @@ test-suite test
     , string-conversions        >=0.4.0.1  && <0.5
     , tasty                     >=1.2.3    && <1.6
     , tasty-hunit               >=0.10.0.2 && <0.11
-    , tasty-quickcheck          >=0.10.1.1 && <0.11
+    , tasty-quickcheck          >=0.10.1.1 && <0.12
     , text
     , unliftio
     , unliftio-core             >=0.1.2.0  && <0.3
     , vector
-    , warp                      >=3.3.9    && <3.4
+    , warp                      >=3.3.9    && <3.5
 
   other-modules:
     Bookstore
@@ -221,4 +221,4 @@ source-repository head
 source-repository this
   type:     git
   location: https://github.com/stevana/quickcheck-state-machine
-  tag:      v0.10.0
+  tag:      v0.10.1
