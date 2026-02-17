@@ -479,7 +479,7 @@ setupDb = do
     [ "run"
     , "-d"
     , "-e", "POSTGRES_PASSWORD=mysecretpassword"
-    , "postgres:10.2"
+    , "postgres:17.7"
     ] ""
   ip <- trim <$> readProcess "docker"
     [ "inspect"

@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            quickcheck-state-machine
-version:         0.10.2
+version:         0.10.3
 synopsis:        Test monadic programs using state machine based models
 description:
   See README at <https://github.com/stevana/quickcheck-state-machine#readme>
@@ -61,21 +61,21 @@ library no-vendored-treediff
   -- (https://gitlab.haskell.org/ghc/ghc/-/blob/master/packages)
   build-depends:
     , base        >=4.10    && <5
-    , containers  >=0.5.7.1 && <0.8
+    , containers  >=0.5.7.1 && <0.9
     , directory   >=1.0.0.0 && <1.4
     , exceptions  >=0.8.3   && <0.11
     , filepath    >=1.0     && <1.6
     , mtl         >=2.2.1   && <2.4
     , text        >=1.2.3.1 && <2.2
-    , time        >=1.7     && <1.15
+    , time        >=1.7     && <1.16
 
   build-depends:
     , graphviz                     >=2999.20.0.3 && <2999.21
     , pretty-show                  >=1.6.16      && <1.11
     , prettyprinter                ^>=1.7.1
     , prettyprinter-ansi-terminal  ^>=1.1.3
-    , QuickCheck                   >=2.12        && <2.17
-    , random                       >=1.1         && <1.3
+    , QuickCheck                   >=2.12        && <2.18
+    , random                       >=1.1         && <1.4
     , sop-core                     >=0.5.0.2     && <0.6
     , split                        >=0.2.3.5     && <0.3
     , unliftio                     >=0.2.7.0     && <0.3
@@ -132,7 +132,7 @@ library
 
   -- tree-diff dependencies:
   build-depends:
-    , base-compat                                    >=0.9.3    && <0.15
+    , base-compat                                    >=0.9.3    && <0.16
     , bytestring                                     >=0.10.4.0 && <0.13
     , generics-sop                                   >=0.3.1.0  && <0.6
     , MemoTrie                                       >=0.6.8    && <0.7
@@ -153,26 +153,26 @@ test-suite test
     , bytestring
     , containers
     , directory
-    , doctest                   >=0.16.2   && <0.23
+    , doctest                   >=0.16.2   && <0.25
     , filelock                  >=0.1.1.4  && <0.2
     , filepath
     , hashable                  >=1.3.0.0  && <1.6
-    , hashtables                >=1.2.3.4  && <1.4
+    , hashtables                >=1.2.3.4  && <1.5
     , http-client               >=0.6.4.1  && <0.8
     , monad-logger              >=0.3.32   && <0.4
     , mtl
     , network                   >=3.1.1.1  && <3.3
-    , persistent                >=2.10.5.2 && <2.15
-    , persistent-postgresql     >=2.10.1.2 && <2.14
+    , persistent                >=2.10.5.2 && <2.19
+    , persistent-postgresql     >=2.10.1.2 && <2.15
     , persistent-sqlite         >=2.10.6.2 && <2.14
     , postgresql-simple         >=0.6.2    && <0.8
     , pretty-show
     , process
     , QuickCheck
-    , quickcheck-instances      >=0.3.22   && <0.4
+    , quickcheck-instances      >=0.3.22   && <0.5
     , quickcheck-state-machine
     , random
-    , resource-pool             >=0.2.3.2  && <0.5
+    , resource-pool             >=0.2.3.2  && <0.6
     , resourcet                 >=1.2.3    && <1.4
     , servant-client            >=0.16.0.1 && <0.21
     , servant-server            >=0.16.2   && <0.21

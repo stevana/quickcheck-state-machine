@@ -19,8 +19,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04]
-        ghc-version: ['8.8.4', '8.10.7', '9.2.8', '9.4.8', '9.6.6', '9.8.2', '9.10.1']
+        os: [ubuntu-latest]
+        ghc-version: ['8.8.4', '8.10.7', '9.2.8', '9.4.8', '9.6.7', '9.8.4', '9.10.3', '9.12.2']
 
     steps:
       - uses: actions/checkout@v3
@@ -30,7 +30,7 @@ jobs:
         id: setup
         with:
           ghc-version: ${{ matrix.ghc-version }}
-          cabal-version: '3.10.1.0'
+          cabal-version: '3.14.2.0'
           cabal-update: true
 
       - name: Installed minor versions of GHC and Cabal

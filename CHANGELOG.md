@@ -1,3 +1,10 @@
+#### 0.10.3 (2026-02-12)
+
+* Bump upper bound of QuickCheck for 2.17.
+* Bump upper bound of random for 1.3.
+* Bump upper bound of containers for 0.8.
+* Bump upper bound of time for 1.15.
+
 #### 0.10.2 (2025-07-17)
 
 * Bump upper bound of QuickCheck to allow 2.16.
