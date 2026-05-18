@@ -1,3 +1,7 @@
+#### 0.10.4 (2026-05-18)
+
+* Bump upper bound of QuickCheck for 2.18.
+
 #### 0.10.3 (2026-02-12)
 
 * Bump upper bound of QuickCheck for 2.17.
