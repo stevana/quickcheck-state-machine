@@ -56,14 +56,17 @@ module Test.StateMachine.Sequential
   )
   where
 
+import           Control.Concurrent.Class.MonadSTM.TChan
+                   (TChan, newTChanIO, tryReadTChan, writeTChan)
 import           Control.Exception
-                   (SomeAsyncException(..), SomeException,
-                   displayException, fromException)
+                   (SomeAsyncException(..))
 import           Control.Monad
                    (when)
-import           Control.Monad.Catch
-                   (ExitCase(..), MonadCatch, MonadMask, catch,
-                   generalBracket)
+import           Control.Monad.Class.MonadSay
+                   (MonadSay, say)
+import           Control.Monad.Class.MonadSTM            hiding
+                   (check)
+import           Control.Monad.Class.MonadThrow
 import           Control.Monad.State.Strict
                    (StateT, evalStateT, get, lift, put, runStateT)
 import           Data.Bifunctor
@@ -74,7 +77,7 @@ import           Data.Either
                    (fromRight)
 import           Data.List
                    (inits)
-import qualified Data.Map                          as M
+import qualified Data.Map                                as M
 import           Data.Map.Strict
                    (Map)
 import           Data.Maybe
@@ -82,14 +85,14 @@ import           Data.Maybe
 import           Data.Monoid
 import           Data.Proxy
                    (Proxy(..))
-import qualified Data.Set                          as S
+import qualified Data.Set                                as S
 import           Data.Time
                    (defaultTimeLocale, formatTime, getZonedTime)
 import           Prelude
 import           Prettyprinter
                    (Doc)
-import qualified Prettyprinter                     as PP
-import qualified Prettyprinter.Render.Terminal     as PP
+import qualified Prettyprinter                           as PP
+import qualified Prettyprinter.Render.Terminal           as PP
 import           System.Directory
                    (createDirectoryIfMissing)
 import           System.FilePath
@@ -107,11 +110,6 @@ import           Test.QuickCheck.Random
                    (mkQCGen)
 import           Text.Show.Pretty
                    (ppShow)
-import           UnliftIO
-                   (MonadIO, TChan, atomically, liftIO, newTChanIO,
-                   tryReadTChan, writeTChan)
-import           UnliftIO.Exception
-                   (throwIO)
 
 import           Test.StateMachine.ConstructorName
 import           Test.StateMachine.Diffing
@@ -120,7 +118,7 @@ import           Test.StateMachine.Labelling
                    (Event(..), execCmds)
 import           Test.StateMachine.Logic
 import           Test.StateMachine.Types
-import qualified Test.StateMachine.Types.Rank2     as Rank2
+import qualified Test.StateMachine.Types.Rank2           as Rank2
 import           Test.StateMachine.Utils
 
 ------------------------------------------------------------------------
@@ -327,7 +325,7 @@ shrinkAndValidate StateMachine { precondition, transition, mock, shrinker } =
 
 runCommands :: (Show (cmd Concrete), Show (resp Concrete))
             => (Rank2.Traversable cmd, Rank2.Foldable resp)
-            => (MonadMask m, MonadIO m)
+            => (MonadMask m, MonadSTM m, MonadSay m)
             => StateMachine model cmd m resp
             -> Commands cmd resp
             -> PropertyM m (History cmd resp, model Concrete, Reason)
@@ -335,7 +333,7 @@ runCommands sm cmds = run $ runCommands' sm cmds
 
 runCommands' :: (Show (cmd Concrete), Show (resp Concrete))
              => (Rank2.Traversable cmd, Rank2.Foldable resp)
-             => (MonadMask m, MonadIO m)
+             => (MonadMask m, MonadSTM m, MonadSay m)
              => StateMachine model cmd m resp
              -> Commands cmd resp
              -> m (History cmd resp, model Concrete, Reason)
@@ -356,7 +354,7 @@ runCommands' sm@StateMachine { initModel, cleanup } cmds = do
 
 -- We should try our best to not let this function fail,
 -- since it is used to cleanup resources, in parallel programs.
-getChanContents :: MonadIO m => TChan a -> m [a]
+getChanContents :: MonadSTM m => TChan m a -> m [a]
 getChanContents chan = reverse <$> atomically (go' [])
   where
     go' acc = do
@@ -372,9 +370,9 @@ data Check
 
 executeCommands :: (Show (cmd Concrete), Show (resp Concrete))
                 => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                => (MonadCatch m, MonadIO m)
+                => (MonadCatch m, MonadSTM m, MonadSay m)
                 => StateMachine model cmd m resp
-                -> TChan (Pid, HistoryEvent cmd resp)
+                -> TChan m (Pid, HistoryEvent cmd resp)
                 -> Pid
                 -> Check
                 -> Commands cmd resp
@@ -390,24 +388,24 @@ executeCommands StateMachine {..} hchan pid check =
         (CheckEverything,   VFalse ce) -> return (PreconditionFailed (show ce))
         _otherwise                    -> do
           let ccmd = fromRight (error "executeCommands: impossible") (reify env scmd)
-          atomically (writeTChan hchan (pid, Invocation ccmd (S.fromList vars)))
+          lift $ atomically (writeTChan hchan (pid, Invocation ccmd (S.fromList vars)))
           !ecresp <- lift $ fmap Right (semantics ccmd) `catch`
                             \(err :: SomeException) -> do
-                              when (isSomeAsyncException err) (liftIO (putStrLn $ displayException err) >> throwIO err)
+                              when (isSomeAsyncException err) (say (displayException err) >> throwIO err)
                               return (Left (displayException err))
           case ecresp of
             Left err    -> do
-              atomically (writeTChan hchan (pid, Exception err))
+              lift $ atomically (writeTChan hchan (pid, Exception err))
               return $ ExceptionThrown err
             Right cresp -> do
               let cvars = getUsedConcrete cresp
               if length vars /= length cvars
               then do
                 let err = mockSemanticsMismatchError (ppShow ccmd) (ppShow vars) (ppShow cresp) (ppShow cvars)
-                atomically (writeTChan hchan (pid, Response cresp))
+                lift $ atomically (writeTChan hchan (pid, Response cresp))
                 return $ MockSemanticsMismatch err
               else do
-                atomically (writeTChan hchan (pid, Response cresp))
+                lift $ atomically (writeTChan hchan (pid, Response cresp))
                 case (check, logic (postcondition cmodel ccmd cresp)) of
                   (CheckEverything, VFalse ce) -> return (PostconditionFailed (show ce))
                   _otherwise ->
@@ -507,7 +505,7 @@ prettyPrintHistory StateMachine { initModel, transition }
         ]
     go _ _ _ = error "prettyPrintHistory: impossible."
 
-prettyCommands :: (MonadIO m, CanDiff (model Concrete))
+prettyCommands :: (Monad m, CanDiff (model Concrete))
                => (Show (cmd Concrete), Show (resp Concrete))
                => StateMachine model cmd m resp
                -> History cmd resp
@@ -574,7 +572,7 @@ prettyPrintHistory' sm@StateMachine { initModel, transition } tag cmds
 
 -- | Variant of 'prettyCommands' that also prints the @tag@s covered by each
 -- command.
-prettyCommands' :: (MonadIO m, CanDiff (model Concrete), CanDiff [tag])
+prettyCommands' :: (Monad m, CanDiff (model Concrete), CanDiff [tag])
                 => (Show (cmd Concrete), Show (resp Concrete))
                 => StateMachine model cmd m resp
                 -> ([Event model cmd resp Symbolic] -> [tag])
@@ -600,13 +598,12 @@ saveCommands dir cmds prop = go `whenFail` prop
 
 runSavedCommands :: (Show (cmd Concrete), Show (resp Concrete))
                  => (Rank2.Traversable cmd, Rank2.Foldable resp)
-                 => (MonadMask m, MonadIO m)
                  => (Read (cmd Symbolic), Read (resp Symbolic))
-                 => StateMachine model cmd m resp
+                 => StateMachine model cmd IO resp
                  -> FilePath
-                 -> PropertyM m (Commands cmd resp, History cmd resp, model Concrete, Reason)
+                 -> PropertyM IO (Commands cmd resp, History cmd resp, model Concrete, Reason)
 runSavedCommands sm fp = do
-  cmds <- read <$> liftIO (readFile fp)
+  cmds <- read <$> run (readFile fp)
   (hist, model, res) <- runCommands sm cmds
   return (cmds, hist, model, res)
 
